@@ -348,7 +348,7 @@ function urlFilename(url) {
 
 function renderBreadcrumbs(chain, url) {
   const el = $('breadcrumbs');
-  if (!chain.length) { el.hidden = true; return; }
+  if (!url) { el.hidden = true; return; }
 
   const parts = chain.map((ancestor, i) =>
     `<a class="breadcrumb-link" href="${escapeHtml(viewerUrlFor(ancestor, chain.slice(0, i)))}" title="${escapeHtml(ancestor)}">${escapeHtml(urlFilename(ancestor))}</a>`
