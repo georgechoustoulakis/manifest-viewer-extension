@@ -35,80 +35,53 @@ function viewerUrlFor(manifestUrl) {
 
 // ─── Link builder ─────────────────────────────────────────────────────────────
 
-/**
- * Build an <a> element string for a URI found in the manifest.
- * - .m3u8 / .m3u  → navigates within the viewer (same tab)
- * - everything else → opens in a new tab
- *
- * rawText  : the text as it appears in the manifest (may be relative)
- * resolved : the absolute URL
- */
 function makeLink(rawText, resolved) {
   const isManifest = isManifestUrl(resolved);
-  const cls = isManifest ? 'uri-manifest' : 'uri-segment';
-  const href = isManifest ? viewerUrlFor(resolved) : resolved;
+  const cls    = isManifest ? 'uri-manifest' : 'uri-segment';
+  const href   = isManifest ? viewerUrlFor(resolved) : resolved;
   const target = isManifest ? '_self' : '_blank';
-  const rel = isManifest ? '' : ' rel="noopener noreferrer"';
+  const rel    = isManifest ? '' : ' rel="noopener noreferrer"';
   return `<a class="${cls}" href="${escapeHtml(href)}" target="${target}"${rel} title="${escapeHtml(resolved)}">${escapeHtml(rawText)}</a>`;
 }
 
 // ─── Attribute list tokenizer ─────────────────────────────────────────────────
 
-/**
- * Tokenize an HLS attribute list string (everything after the first colon of a tag).
- * Returns an HTML string with spans for keys, values, strings, numbers, and links.
- *
- * HLS attribute lists look like:
- *   BANDWIDTH=5000000,RESOLUTION=1920x1080,CODECS="avc1.64002a,mp4a.40.2",URI="playlist.m3u8"
- */
 function tokenizeAttrList(str, baseUrl) {
   let html = '';
   let i = 0;
-  const len = str.length;
 
-  while (i < len) {
-    // Try KEY= pattern
+  while (i < str.length) {
     const keyMatch = /^([A-Z0-9_-]+)=/.exec(str.slice(i));
     if (keyMatch) {
       const key = keyMatch[1];
       html += `<span class="attr-key">${escapeHtml(key)}</span><span class="attr-eq">=</span>`;
       i += keyMatch[0].length;
 
-      if (i < len && str[i] === '"') {
-        // Quoted string — scan for closing quote (handle escaped chars)
+      if (str[i] === '"') {
         let j = i + 1;
-        while (j < len && str[j] !== '"') {
+        while (j < str.length && str[j] !== '"') {
           if (str[j] === '\\') j++;
           j++;
         }
         const inner = str.slice(i + 1, j);
-        const full = str.slice(i, j + 1); // includes surrounding quotes
-
         if (key === 'URI') {
-          const resolved = resolveUrl(inner, baseUrl);
-          html += `"${makeLink(inner, resolved)}"`;
+          html += `"${makeLink(inner, resolveUrl(inner, baseUrl))}"`;
         } else {
-          html += `<span class="attr-string">${escapeHtml(full)}</span>`;
+          html += `<span class="attr-string">${escapeHtml(str.slice(i, j + 1))}</span>`;
         }
         i = j + 1;
       } else {
-        // Unquoted value — read until comma or end
-        const valMatch = /^[^,]*/.exec(str.slice(i));
-        const val = valMatch ? valMatch[0] : '';
-        if (/^\d+(\.\d+)?$/.test(val)) {
-          html += `<span class="number">${escapeHtml(val)}</span>`;
-        } else {
-          html += `<span class="attr-value">${escapeHtml(val)}</span>`;
-        }
+        const val = /^[^,]*/.exec(str.slice(i))?.[0] ?? '';
+        html += /^\d+(\.\d+)?$/.test(val)
+          ? `<span class="number">${escapeHtml(val)}</span>`
+          : `<span class="attr-value">${escapeHtml(val)}</span>`;
         i += val.length;
       }
     } else if (str[i] === ',') {
       html += `<span class="tag-colon">,</span>`;
       i++;
     } else {
-      // Fallback: emit character as-is (handles whitespace, unexpected chars)
-      html += escapeHtml(str[i]);
-      i++;
+      html += escapeHtml(str[i++]);
     }
   }
 
@@ -119,44 +92,34 @@ function tokenizeAttrList(str, baseUrl) {
 
 function highlightLine(line, baseUrl) {
   const trimmed = line.trimEnd();
+  if (!trimmed.trim()) return '';
 
-  // Empty or whitespace
-  if (trimmed.trim() === '') return '';
-
-  // Non-EXT comment
   if (trimmed.startsWith('#') && !trimmed.startsWith('#EXT')) {
     return `<span class="comment">${escapeHtml(trimmed)}</span>`;
   }
 
-  // Header
   if (trimmed === '#EXTM3U') {
     return `<span class="tag-header">${escapeHtml(trimmed)}</span>`;
   }
 
-  // All other #EXT tags
   if (trimmed.startsWith('#EXT')) {
     const colonIdx = trimmed.indexOf(':');
-
-    // Tags with no value: #EXT-X-ENDLIST, #EXT-X-INDEPENDENT-SEGMENTS, etc.
     if (colonIdx === -1) {
       return `<span class="tag-name">${escapeHtml(trimmed)}</span>`;
     }
 
-    const tagName = trimmed.slice(0, colonIdx);
+    const tagName  = trimmed.slice(0, colonIdx);
     const tagValue = trimmed.slice(colonIdx + 1);
 
-    // #EXTINF:duration,title — special case
     if (tagName === '#EXTINF') {
       const commaIdx = tagValue.indexOf(',');
       if (commaIdx !== -1) {
-        const duration = tagValue.slice(0, commaIdx);
-        const title = tagValue.slice(commaIdx + 1);
         return (
           `<span class="tag-name">${escapeHtml(tagName)}</span>` +
           `<span class="tag-colon">:</span>` +
-          `<span class="number">${escapeHtml(duration)}</span>` +
+          `<span class="number">${escapeHtml(tagValue.slice(0, commaIdx))}</span>` +
           `<span class="tag-colon">,</span>` +
-          `<span class="extinf-title">${escapeHtml(title)}</span>`
+          `<span class="extinf-title">${escapeHtml(tagValue.slice(commaIdx + 1))}</span>`
         );
       }
       return (
@@ -166,7 +129,6 @@ function highlightLine(line, baseUrl) {
       );
     }
 
-    // All other tags: tokenize the attribute list
     return (
       `<span class="tag-name">${escapeHtml(tagName)}</span>` +
       `<span class="tag-colon">:</span>` +
@@ -174,31 +136,22 @@ function highlightLine(line, baseUrl) {
     );
   }
 
-  // Bare URI line (segment or playlist reference — anything not starting with #)
   if (!trimmed.startsWith('#')) {
-    const resolved = resolveUrl(trimmed, baseUrl);
-    return makeLink(trimmed, resolved);
+    return makeLink(trimmed, resolveUrl(trimmed, baseUrl));
   }
 
   return escapeHtml(trimmed);
 }
 
-// ─── Full manifest highlighter ────────────────────────────────────────────────
+// ─── Manifest renderer ────────────────────────────────────────────────────────
 
-function highlightManifest(content, baseUrl) {
-  const lines = content.split('\n');
-  return lines
-    .map((line, idx) => {
-      const lineNum = idx + 1;
-      const highlighted = highlightLine(line, baseUrl);
-      return (
-        `<div class="line">` +
-        `<span class="line-num">${lineNum}</span>` +
-        `<span class="line-content">${highlighted}</span>` +
-        `</div>`
-      );
-    })
-    .join('');
+function renderManifest(content, baseUrl) {
+  return content.split('\n').map((line, idx) =>
+    `<div class="line">` +
+    `<span class="line-num">${idx + 1}</span>` +
+    `<span class="line-content">${highlightLine(line, baseUrl)}</span>` +
+    `</div>`
+  ).join('');
 }
 
 // ─── Fetch via background service worker ─────────────────────────────────────
@@ -210,74 +163,49 @@ function fetchManifest(url) {
         reject(new Error(chrome.runtime.lastError.message));
         return;
       }
-      if (!response) {
-        reject(new Error('No response from background service worker'));
-        return;
-      }
-      if (response.success) {
+      if (response?.success) {
         resolve(response);
       } else {
-        reject(new Error(response.error || 'Fetch failed'));
+        reject(new Error(response?.error || 'Fetch failed'));
       }
     });
   });
 }
 
-// ─── UI helpers ───────────────────────────────────────────────────────────────
+// ─── App state & load ────────────────────────────────────────────────────────
 
 const $ = id => document.getElementById(id);
 
-function showState(state) {
-  $('loading').hidden = state !== 'loading';
-  $('error').hidden = state !== 'error';
-  $('empty').hidden = state !== 'empty';
-  $('manifest-view').hidden = state !== 'manifest';
-  $('status-bar').hidden = (state !== 'manifest' && state !== 'error');
-}
-
-function setStatus(text, meta) {
-  $('status-text').textContent = text || '';
-  $('status-meta').textContent = meta || '';
-}
-
-// ─── Load & render a manifest ─────────────────────────────────────────────────
-
-let currentUrl = '';
+let currentUrl        = '';
 let currentRawContent = '';
 
 async function loadManifest(url) {
-  if (!url) { showState('empty'); return; }
+  if (!url) return;
 
-  currentUrl = url;
+  currentUrl        = url;
   currentRawContent = '';
-  $('url-bar').value = url;
+  $('url-bar').value          = url;
+  $('status-text').textContent = '';
+  $('status-meta').textContent = '';
+  $('manifest-content').innerHTML = '';
   document.title = new URL(url).pathname.split('/').pop() + ' — HLS Viewer';
 
-  showState('loading');
-  setStatus('', '');
-
   try {
-    const result = await fetchManifest(url);
-    const { content, status, contentType } = result;
-
+    const { content, status, contentType } = await fetchManifest(url);
     currentRawContent = content;
-    $('manifest-content').innerHTML = highlightManifest(content, url);
-    showState('manifest');
-
-    const byteCount = new TextEncoder().encode(content).length;
-    setStatus(status, `${contentType || 'text/plain'} · ${byteCount.toLocaleString()} bytes · ${content.split('\n').length} lines`);
+    $('manifest-content').innerHTML = renderManifest(content, url);
+    const bytes = new TextEncoder().encode(content).length;
+    $('status-text').textContent = status;
+    $('status-meta').textContent =
+      `${contentType || 'text/plain'} · ${bytes.toLocaleString()} bytes · ${content.split('\n').length} lines`;
   } catch (err) {
-    showState('error');
-    $('error-text').textContent = err.message;
-    setStatus('Error', '');
+    $('status-text').textContent = 'Error';
+    $('manifest-content').textContent = err.message;
   }
 }
 
-// ─── Navigation ───────────────────────────────────────────────────────────────
-
 function navigate(url) {
-  if (!url) return;
-  window.location.href = viewerUrlFor(url);
+  if (url) window.location.href = viewerUrlFor(url);
 }
 
 // ─── Event listeners ─────────────────────────────────────────────────────────
@@ -290,23 +218,18 @@ document.addEventListener('DOMContentLoaded', () => {
   let initialUrl = params.get('url') || '';
 
   if (!initialUrl && location.hash.length > 1) {
-    // Fragment contains the raw manifest URL (no encoding applied by the redirect rule).
     initialUrl = location.hash.slice(1);
-    // Rewrite the address bar to the canonical ?url= form and remove the fragment.
     history.replaceState(null, '', '?url=' + encodeURIComponent(initialUrl));
   }
 
-  // Back button — enabled only if history allows it
   $('back-btn').disabled = history.length <= 1;
   $('back-btn').addEventListener('click', () => history.back());
 
-  // URL bar navigation
   $('url-bar').addEventListener('keydown', e => {
     if (e.key === 'Enter') navigate($('url-bar').value.trim());
   });
   $('go-btn').addEventListener('click', () => navigate($('url-bar').value.trim()));
 
-  // Copy current URL
   $('copy-btn').addEventListener('click', async () => {
     const url = currentUrl || $('url-bar').value.trim();
     if (!url) return;
@@ -316,28 +239,18 @@ document.addEventListener('DOMContentLoaded', () => {
       const orig = btn.textContent;
       btn.textContent = 'Copied!';
       setTimeout(() => { btn.textContent = orig; }, 1500);
-    } catch {
-      // Clipboard access denied — silently ignore
-    }
+    } catch { /* clipboard denied */ }
   });
 
-  // Open raw content in a new tab as plain text (via blob URL so the
-  // declarativeNetRequest rule doesn't intercept it again).
   $('raw-btn').addEventListener('click', () => {
     if (currentRawContent) {
       const blob = new Blob([currentRawContent], { type: 'text/plain' });
-      const blobUrl = URL.createObjectURL(blob);
-      window.open(blobUrl, '_blank', 'noopener');
+      window.open(URL.createObjectURL(blob), '_blank', 'noopener');
     } else {
       const url = currentUrl || $('url-bar').value.trim();
       if (url) window.open(url, '_blank', 'noopener');
     }
   });
 
-  // Load initial manifest
-  if (initialUrl) {
-    loadManifest(initialUrl);
-  } else {
-    showState('empty');
-  }
+  if (initialUrl) loadManifest(initialUrl);
 });

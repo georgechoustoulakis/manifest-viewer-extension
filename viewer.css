@@ -26,7 +26,6 @@
   /* UI */
   --accent:       #89b4fa;
   --accent-hover: #b4d0ff;
-  --danger:       #f38ba8;
   --radius:       6px;
   --navbar-h:     44px;
   --status-h:     24px;
@@ -140,89 +139,16 @@ html, body {
   padding: 0 14px;
 }
 
-.status-text {
-  color: var(--subtext);
-}
-
-.status-meta {
-  color: var(--muted);
-}
+.status-text { color: var(--subtext); }
+.status-meta { color: var(--muted); }
 
 /* ---- Content ---- */
 .content-wrap {
   flex: 1;
   overflow: auto;
-  position: relative;
-}
-
-/* State views (loading, error, empty) */
-.state-view {
-  align-items: center;
-  color: var(--subtext);
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  justify-content: center;
-  min-height: 200px;
-  padding: 40px 20px;
-  text-align: center;
-}
-
-.state-view--error {
-  color: var(--danger);
-}
-
-.error-icon {
-  font-size: 24px;
-}
-
-.empty-icon {
-  color: var(--muted);
-  font-size: 32px;
-  opacity: 0.5;
-}
-
-.empty-hint {
-  color: var(--muted);
-  font-size: 12px;
-  margin-top: -4px;
-}
-
-.state-view code {
-  background: var(--surface);
-  border-radius: 3px;
-  font-family: 'Menlo', 'Monaco', 'Consolas', monospace;
-  padding: 1px 5px;
-}
-
-.state-view kbd {
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  font-family: inherit;
-  font-size: 11px;
-  padding: 1px 5px;
-}
-
-/* Spinner */
-.spinner {
-  animation: spin 0.8s linear infinite;
-  border: 2px solid var(--border);
-  border-radius: 50%;
-  border-top-color: var(--accent);
-  height: 24px;
-  width: 24px;
-}
-
-@keyframes spin { to { transform: rotate(360deg); } }
-
-/* ---- Manifest viewer ---- */
-.manifest-view {
-  height: 100%;
 }
 
 .manifest-content {
-  counter-reset: line;
   display: block;
   font-family: 'Menlo', 'Monaco', 'Consolas', 'Courier New', monospace;
   font-size: 12.5px;
@@ -233,10 +159,10 @@ html, body {
 }
 
 .line {
-  display: flex;
   align-items: baseline;
-  padding: 0 16px 0 0;
+  display: flex;
   min-height: 1.6em;
+  padding-right: 16px;
 }
 
 .line:hover {
@@ -247,7 +173,7 @@ html, body {
   color: var(--muted);
   flex-shrink: 0;
   min-width: 48px;
-  padding: 0 16px 0 16px;
+  padding: 0 16px;
   text-align: right;
   user-select: none;
 }
@@ -259,46 +185,37 @@ html, body {
 }
 
 /* ---- Syntax tokens ---- */
-.tag-header  { color: var(--c-header); font-weight: 600; }
-.tag-name    { color: var(--c-tag); }
-.tag-colon   { color: var(--subtext); }
-.extinf-title{ color: var(--subtext); }
-.attr-key    { color: var(--c-attr-key); }
-.attr-eq     { color: var(--subtext); }
-.attr-value  { color: var(--c-attr-val); }
-.attr-string { color: var(--c-string); }
-.number      { color: var(--c-number); }
-.comment     { color: var(--c-comment); font-style: italic; }
+.tag-header   { color: var(--c-header); font-weight: 600; }
+.tag-name     { color: var(--c-tag); }
+.tag-colon    { color: var(--subtext); }
+.extinf-title { color: var(--subtext); }
+.attr-key     { color: var(--c-attr-key); }
+.attr-eq      { color: var(--subtext); }
+.attr-value   { color: var(--c-attr-val); }
+.attr-string  { color: var(--c-string); }
+.number       { color: var(--c-number); }
+.comment      { color: var(--c-comment); font-style: italic; }
 
-/* Clickable URI links */
+/* ---- Clickable URI links ---- */
 a.uri-manifest,
 a.uri-segment {
+  border-bottom: 1px dashed currentColor;
   cursor: pointer;
   text-decoration: none;
-  border-bottom: 1px dashed currentColor;
   transition: opacity 0.1s;
 }
 
-a.uri-manifest {
-  color: var(--c-uri-m3u8);
-}
+a.uri-manifest { color: var(--c-uri-m3u8); }
+a.uri-segment  { color: var(--c-uri-seg); }
 
-a.uri-manifest:hover {
-  opacity: 0.8;
-  border-bottom-style: solid;
-}
-
-a.uri-segment {
-  color: var(--c-uri-seg);
-}
-
+a.uri-manifest:hover,
 a.uri-segment:hover {
-  opacity: 0.8;
   border-bottom-style: solid;
+  opacity: 0.8;
 }
 
-/* Scrollbar */
-::-webkit-scrollbar { width: 6px; height: 6px; }
+/* ---- Scrollbar ---- */
+::-webkit-scrollbar { height: 6px; width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
