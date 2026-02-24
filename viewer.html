@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HLS Manifest Viewer</title>
+  <link rel="stylesheet" href="viewer.css">
+</head>
+<body>
+  <div class="app">
+
+    <!-- Top navigation bar -->
+    <nav class="navbar">
+      <button id="back-btn" class="nav-btn nav-btn--icon" title="Go back" disabled>
+        &#8592;
+      </button>
+      <div class="url-bar-wrap">
+        <span class="url-bar-icon">&#9654;</span>
+        <input
+          type="url"
+          id="url-bar"
+          class="url-bar"
+          placeholder="https://example.com/master.m3u8"
+          autocomplete="off"
+          spellcheck="false"
+        >
+      </div>
+      <button id="go-btn" class="nav-btn nav-btn--text">Go</button>
+      <button id="copy-btn" class="nav-btn nav-btn--text" title="Copy URL">Copy</button>
+      <button id="raw-btn" class="nav-btn nav-btn--text" title="Open raw URL in new tab">Raw</button>
+    </nav>
+
+    <!-- Status bar -->
+    <div id="status-bar" class="status-bar" hidden>
+      <span id="status-text" class="status-text"></span>
+      <span id="status-meta" class="status-meta"></span>
+    </div>
+
+    <!-- Main content -->
+    <main class="content-wrap">
+      <div id="loading" class="state-view" hidden>
+        <div class="spinner"></div>
+        <span>Fetching manifest&hellip;</span>
+      </div>
+
+      <div id="error" class="state-view state-view--error" hidden>
+        <span class="error-icon">&#9888;</span>
+        <span id="error-text"></span>
+      </div>
+
+      <div id="empty" class="state-view">
+        <span class="empty-icon">&#9654;</span>
+        <p>Paste an <code>.m3u8</code> URL in the bar above and press <kbd>Enter</kbd></p>
+        <p class="empty-hint">Or open a URL via the extension popup</p>
+      </div>
+
+      <div id="manifest-view" class="manifest-view" hidden>
+        <pre id="manifest-content" class="manifest-content"></pre>
+      </div>
+    </main>
+
+  </div>
+  <script src="viewer.js"></script>
+</body>
+</html>

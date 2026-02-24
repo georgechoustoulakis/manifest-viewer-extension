@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HLS Manifest Viewer</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup">
+    <header class="header">
+      <div class="logo">
+        <span class="logo-icon">&#9654;</span>
+        <span class="logo-text">HLS Manifest Viewer</span>
+      </div>
+    </header>
+
+    <main class="main">
+      <div class="input-group">
+        <input
+          type="url"
+          id="url-input"
+          class="url-input"
+          placeholder="https://example.com/master.m3u8"
+          autocomplete="off"
+          spellcheck="false"
+        >
+        <button id="view-btn" class="view-btn">View</button>
+      </div>
+      <p class="hint">Paste an .m3u8 URL and press Enter or click View</p>
+
+      <section id="recent-section" class="recent-section" hidden>
+        <div class="recent-header">
+          <span class="recent-label">Recent</span>
+          <button id="clear-btn" class="clear-btn">Clear</button>
+        </div>
+        <ul id="recent-list" class="recent-list"></ul>
+      </section>
+    </main>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

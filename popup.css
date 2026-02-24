@@ -1,0 +1,207 @@
+:root {
+  --bg: #1e1e2e;
+  --surface: #313244;
+  --surface-hover: #45475a;
+  --border: #45475a;
+  --text: #cdd6f4;
+  --subtext: #a6adc8;
+  --accent: #89b4fa;
+  --accent-hover: #b4d0ff;
+  --danger: #f38ba8;
+  --radius: 6px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 13px;
+  background: var(--bg);
+  color: var(--text);
+  width: 380px;
+  min-height: 80px;
+}
+
+.popup {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header */
+.header {
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.logo-icon {
+  font-size: 14px;
+  color: var(--accent);
+}
+
+.logo-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: 0.01em;
+}
+
+/* Main */
+.main {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.input-group {
+  display: flex;
+  gap: 6px;
+}
+
+.url-input {
+  flex: 1;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-family: 'Menlo', 'Monaco', 'Consolas', monospace;
+  font-size: 11.5px;
+  padding: 7px 10px;
+  outline: none;
+  transition: border-color 0.15s;
+  min-width: 0;
+}
+
+.url-input::placeholder {
+  color: var(--subtext);
+  opacity: 0.6;
+}
+
+.url-input:focus {
+  border-color: var(--accent);
+}
+
+.view-btn {
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius);
+  color: #1e1e2e;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 7px 14px;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+
+.view-btn:hover {
+  background: var(--accent-hover);
+}
+
+.view-btn:active {
+  opacity: 0.85;
+}
+
+.hint {
+  color: var(--subtext);
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+/* Recent URLs */
+.recent-section {
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+  padding-top: 10px;
+}
+
+.recent-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.recent-label {
+  color: var(--subtext);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.clear-btn {
+  background: none;
+  border: none;
+  color: var(--subtext);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 0;
+  transition: color 0.15s;
+}
+
+.clear-btn:hover {
+  color: var(--danger);
+}
+
+.recent-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  list-style: none;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.recent-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.recent-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.recent-list::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
+}
+
+.recent-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  padding: 5px 8px;
+  transition: background 0.1s;
+}
+
+.recent-item:hover {
+  background: var(--surface-hover);
+}
+
+.recent-item-icon {
+  color: var(--subtext);
+  flex-shrink: 0;
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.recent-item-url {
+  color: var(--accent);
+  font-family: 'Menlo', 'Monaco', 'Consolas', monospace;
+  font-size: 10.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
