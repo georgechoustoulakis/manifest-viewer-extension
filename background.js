@@ -22,8 +22,8 @@ async function setupInterceptRules() {
         }
       },
       condition: {
-        // Matches http(s) URLs ending in .m3u8 or .m3u with an optional query string.
-        regexFilter: '^(https?://.+\\.m3u8?(\\?[^#]*)?)$',
+        // Matches http(s) URLs ending in .m3u8, .m3u, or .mpd with an optional query string.
+        regexFilter: '^(https?://.+\\.(?:m3u8?|mpd)(\\?[^#]*)?)$',
         resourceTypes: ['main_frame']
       }
     }]

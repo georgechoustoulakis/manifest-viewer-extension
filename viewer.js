@@ -22,10 +22,10 @@ function resolveUrl(href, baseUrl) {
 function isManifestUrl(url) {
   try {
     const path = new URL(url).pathname.toLowerCase().split('?')[0];
-    return path.endsWith('.m3u8') || path.endsWith('.m3u');
+    return path.endsWith('.m3u8') || path.endsWith('.m3u') || path.endsWith('.mpd');
   } catch {
     const lower = url.toLowerCase();
-    return lower.includes('.m3u8') || lower.includes('.m3u');
+    return lower.includes('.m3u8') || lower.includes('.m3u') || lower.includes('.mpd');
   }
 }
 
@@ -44,7 +44,17 @@ function makeLink(rawText, resolved) {
   return `<a class="${cls}" href="${escapeHtml(href)}" target="${target}"${rel} title="${escapeHtml(resolved)}">${escapeHtml(rawText)}</a>`;
 }
 
-// ─── Attribute list tokenizer ─────────────────────────────────────────────────
+// ─── Format detection ─────────────────────────────────────────────────────────
+
+function detectFormat(url, contentType) {
+  try {
+    if (new URL(url).pathname.toLowerCase().endsWith('.mpd')) return 'dash';
+  } catch {}
+  if (contentType.includes('dash+xml') || contentType.includes('application/dash')) return 'dash';
+  return 'hls';
+}
+
+// ─── HLS renderer ─────────────────────────────────────────────────────────────
 
 function tokenizeAttrList(str, baseUrl) {
   let html = '';
@@ -88,9 +98,7 @@ function tokenizeAttrList(str, baseUrl) {
   return html;
 }
 
-// ─── Line highlighter ─────────────────────────────────────────────────────────
-
-function highlightLine(line, baseUrl) {
+function highlightHlsLine(line, baseUrl) {
   const trimmed = line.trimEnd();
   if (!trimmed.trim()) return '';
 
@@ -143,13 +151,124 @@ function highlightLine(line, baseUrl) {
   return escapeHtml(trimmed);
 }
 
-// ─── Manifest renderer ────────────────────────────────────────────────────────
-
-function renderManifest(content, baseUrl) {
+function renderHls(content, baseUrl) {
   return content.split('\n').map((line, idx) =>
     `<div class="line">` +
     `<span class="line-num">${idx + 1}</span>` +
-    `<span class="line-content">${highlightLine(line, baseUrl)}</span>` +
+    `<span class="line-content">${highlightHlsLine(line, baseUrl)}</span>` +
+    `</div>`
+  ).join('');
+}
+
+// ─── DASH/MPD renderer ────────────────────────────────────────────────────────
+
+function highlightXmlTag(text, baseUrl) {
+  // Closing tag: </TagName>
+  const closeMatch = /^<\/([\w:.-]+)(\s*)>/.exec(text);
+  if (closeMatch) {
+    return `<span class="xml-punct">&lt;/</span>` +
+           `<span class="xml-tag-name">${escapeHtml(closeMatch[1])}</span>` +
+           escapeHtml(closeMatch[2]) +
+           `<span class="xml-punct">&gt;</span>`;
+  }
+
+  // Opening / self-closing tag: <TagName attr="val" ...>
+  const nameMatch = /^<([\w:.-]+)/.exec(text);
+  if (!nameMatch) return escapeHtml(text);
+
+  let html = `<span class="xml-punct">&lt;</span><span class="xml-tag-name">${escapeHtml(nameMatch[1])}</span>`;
+  let i = nameMatch[0].length;
+
+  while (i < text.length) {
+    if (text[i] === '>') {
+      html += `<span class="xml-punct">&gt;</span>`;
+      break;
+    }
+    if (text.slice(i, i + 2) === '/>') {
+      html += `<span class="xml-punct">/&gt;</span>`;
+      break;
+    }
+
+    const wsMatch = /^\s+/.exec(text.slice(i));
+    if (wsMatch) { html += escapeHtml(wsMatch[0]); i += wsMatch[0].length; continue; }
+
+    const attrName = /^[\w:.-]+/.exec(text.slice(i))?.[0];
+    if (!attrName) { html += escapeHtml(text[i++]); continue; }
+
+    html += `<span class="xml-attr-name">${escapeHtml(attrName)}</span>`;
+    i += attrName.length;
+
+    const eqMatch = /^\s*=\s*/.exec(text.slice(i));
+    if (!eqMatch) continue;
+    html += escapeHtml(eqMatch[0]);
+    i += eqMatch[0].length;
+
+    const quote = text[i];
+    if (quote !== '"' && quote !== "'") continue;
+    html += `<span class="xml-punct">${escapeHtml(quote)}</span>`;
+    i++;
+
+    const valEnd = text.indexOf(quote, i);
+    const value  = valEnd === -1 ? text.slice(i) : text.slice(i, valEnd);
+
+    // Only linkify absolute URLs; leave template strings (e.g. $Number$) as plain text.
+    if (/^https?:\/\//.test(value)) {
+      html += makeLink(value, resolveUrl(value, baseUrl));
+    } else {
+      html += `<span class="xml-attr-value">${escapeHtml(value)}</span>`;
+    }
+
+    html += `<span class="xml-punct">${escapeHtml(quote)}</span>`;
+    i = valEnd === -1 ? text.length : valEnd + 1;
+  }
+
+  return html;
+}
+
+// Highlight element text content (e.g. <BaseURL>https://...</BaseURL>).
+function highlightXmlText(text, baseUrl) {
+  return text.split('\n').map(line => {
+    const trimmed = line.trim();
+    if (!trimmed || !trimmed.startsWith('http')) return escapeHtml(line);
+    const pre  = escapeHtml(line.slice(0, line.indexOf(trimmed)));
+    const post = escapeHtml(line.slice(line.indexOf(trimmed) + trimmed.length));
+    return pre + makeLink(trimmed, resolveUrl(trimmed, baseUrl)) + post;
+  }).join('\n');
+}
+
+function renderDash(content, baseUrl) {
+  // Match comments, processing instructions, and tags (quoting-aware so > inside
+  // attribute values doesn't terminate the tag prematurely).
+  const tokenRe = /(<!--[\s\S]*?-->|<\?[\s\S]*?\?>|<(?:[^"'<>]|"[^"]*"|'[^']*')*>)/g;
+  let html = '';
+  let lastIndex = 0;
+
+  for (const match of content.matchAll(tokenRe)) {
+    if (match.index > lastIndex) {
+      html += highlightXmlText(content.slice(lastIndex, match.index), baseUrl);
+    }
+
+    const token = match[0];
+    if (token.startsWith('<!--')) {
+      // Wrap each line individually so no span ever crosses a line boundary.
+      html += token.split('\n').map(l => `<span class="xml-comment">${escapeHtml(l)}</span>`).join('\n');
+    } else if (token.startsWith('<?')) {
+      html += token.split('\n').map(l => `<span class="xml-pi">${escapeHtml(l)}</span>`).join('\n');
+    } else {
+      html += highlightXmlTag(token, baseUrl);
+    }
+
+    lastIndex = match.index + token.length;
+  }
+
+  if (lastIndex < content.length) {
+    html += highlightXmlText(content.slice(lastIndex), baseUrl);
+  }
+
+  return html.split('\n').map((lineHtml, idx) =>
+    `<div class="line">` +
+    `<span class="line-num">${idx + 1}</span>` +
+    `<span class="line-content">${lineHtml}</span>` +
     `</div>`
   ).join('');
 }
@@ -184,24 +303,29 @@ async function loadManifest(url) {
 
   currentUrl        = url;
   currentRawContent = '';
-  $('url-bar').value           = url;
-  $('status-text').textContent  = '';
-  $('status-meta').textContent  = '';
+  $('url-bar').value              = url;
+  $('status-text').textContent    = '';
+  $('status-meta').textContent    = '';
   $('manifest-content').innerHTML = '';
-  $('download-btn').disabled   = true;
-  document.title = new URL(url).pathname.split('/').pop() + ' — HLS Viewer';
+  $('download-btn').disabled      = true;
+  document.title = new URL(url).pathname.split('/').pop() + ' — Manifest Viewer';
 
   try {
     const { content, status, contentType } = await fetchManifest(url);
     currentRawContent = content;
-    $('manifest-content').innerHTML = renderManifest(content, url);
+
+    const format = detectFormat(url, contentType);
+    $('manifest-content').innerHTML = format === 'dash'
+      ? renderDash(content, url)
+      : renderHls(content, url);
+
     $('download-btn').disabled = false;
     const bytes = new TextEncoder().encode(content).length;
     $('status-text').textContent = status;
     $('status-meta').textContent =
-      `${contentType || 'text/plain'} · ${bytes.toLocaleString()} bytes · ${content.split('\n').length} lines`;
+      `${format.toUpperCase()} · ${contentType || 'text/plain'} · ${bytes.toLocaleString()} bytes · ${content.split('\n').length} lines`;
   } catch (err) {
-    $('download-btn').disabled = true;
+    $('download-btn').disabled   = true;
     $('status-text').textContent = 'Error';
     $('manifest-content').textContent = err.message;
   }
@@ -247,7 +371,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   $('download-btn').addEventListener('click', () => {
     if (!currentRawContent) return;
-    const filename = new URL(currentUrl).pathname.split('/').pop() || 'manifest.m3u8';
+    const filename = new URL(currentUrl).pathname.split('/').pop() || 'manifest';
     const blob = new Blob([currentRawContent], { type: 'text/plain' });
     const a = Object.assign(document.createElement('a'), {
       href: URL.createObjectURL(blob),

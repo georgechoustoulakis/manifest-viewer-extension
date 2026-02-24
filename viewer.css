@@ -201,6 +201,14 @@ html, body {
 .number       { color: var(--c-number); }
 .comment      { color: var(--c-comment); font-style: italic; }
 
+/* ---- DASH/XML tokens (reuse existing color vars) ---- */
+.xml-comment    { color: var(--c-comment); font-style: italic; }
+.xml-pi         { color: var(--c-header); }
+.xml-tag-name   { color: var(--c-tag); }
+.xml-attr-name  { color: var(--c-attr-key); }
+.xml-attr-value { color: var(--c-string); }
+.xml-punct      { color: var(--subtext); }
+
 /* ---- Clickable URI links ---- */
 a.uri-manifest,
 a.uri-segment {
