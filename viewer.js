@@ -29,8 +29,10 @@ function isManifestUrl(url) {
   }
 }
 
-function viewerUrlFor(manifestUrl) {
-  return chrome.runtime.getURL('viewer.html') + '?url=' + encodeURIComponent(manifestUrl);
+function viewerUrlFor(manifestUrl, chain = []) {
+  let url = chrome.runtime.getURL('viewer.html') + '?url=' + encodeURIComponent(manifestUrl);
+  for (const ancestor of chain) url += '&back=' + encodeURIComponent(ancestor);
+  return url;
 }
 
 // ─── Link builder ─────────────────────────────────────────────────────────────
@@ -38,7 +40,9 @@ function viewerUrlFor(manifestUrl) {
 function makeLink(rawText, resolved) {
   const isManifest = isManifestUrl(resolved);
   const cls    = isManifest ? 'uri-manifest' : 'uri-segment';
-  const href   = isManifest ? viewerUrlFor(resolved) : resolved;
+  // For manifest links, thread the full ancestor chain (including the current page)
+  // so the destination can render breadcrumbs all the way back to the root.
+  const href   = isManifest ? viewerUrlFor(resolved, [...currentChain, currentUrl]) : resolved;
   const target = isManifest ? '_self' : '_blank';
   const rel    = isManifest ? '' : ' rel="noopener noreferrer"';
   return `<a class="${cls}" href="${escapeHtml(href)}" target="${target}"${rel} title="${escapeHtml(resolved)}">${escapeHtml(rawText)}</a>`;
@@ -297,6 +301,7 @@ const $ = id => document.getElementById(id);
 
 let currentUrl        = '';
 let currentRawContent = '';
+let currentChain      = []; // ancestor URLs, oldest first
 
 async function loadManifest(url) {
   if (!url) return;
@@ -332,7 +337,26 @@ async function loadManifest(url) {
 }
 
 function navigate(url) {
-  if (url) window.location.href = viewerUrlFor(url);
+  if (url) window.location.href = viewerUrlFor(url); // no chain — URL bar starts fresh
+}
+
+// ─── Breadcrumbs ──────────────────────────────────────────────────────────────
+
+function urlFilename(url) {
+  try { return new URL(url).pathname.split('/').pop() || url; } catch { return url; }
+}
+
+function renderBreadcrumbs(chain, url) {
+  const el = $('breadcrumbs');
+  if (!chain.length) { el.hidden = true; return; }
+
+  const parts = chain.map((ancestor, i) =>
+    `<a class="breadcrumb-link" href="${escapeHtml(viewerUrlFor(ancestor, chain.slice(0, i)))}" title="${escapeHtml(ancestor)}">${escapeHtml(urlFilename(ancestor))}</a>`
+  );
+  parts.push(`<span class="breadcrumb-current">${escapeHtml(urlFilename(url))}</span>`);
+
+  el.innerHTML = parts.join('<span class="breadcrumb-sep">›</span>');
+  el.hidden = false;
 }
 
 // ─── Event listeners ─────────────────────────────────────────────────────────
@@ -348,6 +372,10 @@ document.addEventListener('DOMContentLoaded', () => {
     initialUrl = location.hash.slice(1);
     history.replaceState(null, '', '?url=' + encodeURIComponent(initialUrl));
   }
+
+  // Read ancestor chain from &back= params and render breadcrumbs.
+  currentChain = params.getAll('back');
+  renderBreadcrumbs(currentChain, initialUrl);
 
   $('back-btn').disabled = history.length <= 1;
   $('back-btn').addEventListener('click', () => history.back());

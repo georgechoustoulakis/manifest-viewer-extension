@@ -131,6 +131,39 @@ html, body {
 
 .url-bar::placeholder { color: var(--muted); }
 
+/* ---- Breadcrumbs ---- */
+.breadcrumbs {
+  align-items: center;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-shrink: 0;
+  font-family: 'Menlo', 'Monaco', 'Consolas', monospace;
+  font-size: 11px;
+  min-height: 26px;
+  overflow-x: auto;
+  padding: 0 14px;
+  white-space: nowrap;
+}
+
+.breadcrumbs::-webkit-scrollbar { display: none; }
+
+.breadcrumb-link {
+  color: var(--subtext);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.breadcrumb-link:hover { color: var(--accent); }
+
+.breadcrumb-current { color: var(--text); }
+
+.breadcrumb-sep {
+  color: var(--muted);
+  padding: 0 5px;
+  user-select: none;
+}
+
 /* ---- Status bar ---- */
 .status-bar {
   align-items: center;
