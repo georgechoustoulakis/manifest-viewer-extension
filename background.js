@@ -30,6 +30,11 @@ async function setupInterceptRules() {
   });
 }
 
+// Run immediately on every service worker init so rules are always current,
+// regardless of whether onInstalled or onStartup fired (e.g. extension reload
+// from chrome://extensions doesn't reliably trigger either for dynamic rules).
+setupInterceptRules().catch(console.error);
+
 chrome.runtime.onInstalled.addListener(setupInterceptRules);
 chrome.runtime.onStartup.addListener(setupInterceptRules);
 
