@@ -184,21 +184,24 @@ async function loadManifest(url) {
 
   currentUrl        = url;
   currentRawContent = '';
-  $('url-bar').value          = url;
-  $('status-text').textContent = '';
-  $('status-meta').textContent = '';
+  $('url-bar').value           = url;
+  $('status-text').textContent  = '';
+  $('status-meta').textContent  = '';
   $('manifest-content').innerHTML = '';
+  $('download-btn').disabled   = true;
   document.title = new URL(url).pathname.split('/').pop() + ' — HLS Viewer';
 
   try {
     const { content, status, contentType } = await fetchManifest(url);
     currentRawContent = content;
     $('manifest-content').innerHTML = renderManifest(content, url);
+    $('download-btn').disabled = false;
     const bytes = new TextEncoder().encode(content).length;
     $('status-text').textContent = status;
     $('status-meta').textContent =
       `${contentType || 'text/plain'} · ${bytes.toLocaleString()} bytes · ${content.split('\n').length} lines`;
   } catch (err) {
+    $('download-btn').disabled = true;
     $('status-text').textContent = 'Error';
     $('manifest-content').textContent = err.message;
   }
@@ -240,6 +243,18 @@ document.addEventListener('DOMContentLoaded', () => {
       btn.textContent = 'Copied!';
       setTimeout(() => { btn.textContent = orig; }, 1500);
     } catch { /* clipboard denied */ }
+  });
+
+  $('download-btn').addEventListener('click', () => {
+    if (!currentRawContent) return;
+    const filename = new URL(currentUrl).pathname.split('/').pop() || 'manifest.m3u8';
+    const blob = new Blob([currentRawContent], { type: 'text/plain' });
+    const a = Object.assign(document.createElement('a'), {
+      href: URL.createObjectURL(blob),
+      download: filename,
+    });
+    a.click();
+    URL.revokeObjectURL(a.href);
   });
 
   $('raw-btn').addEventListener('click', () => {
