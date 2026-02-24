@@ -11,7 +11,8 @@
     "default_title": "HLS Manifest Viewer"
   },
   "permissions": [
-    "storage"
+    "storage",
+    "declarativeNetRequest"
   ],
   "host_permissions": [
     "<all_urls>"

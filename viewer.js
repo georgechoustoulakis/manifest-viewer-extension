@@ -243,11 +243,13 @@ function setStatus(text, meta) {
 // ─── Load & render a manifest ─────────────────────────────────────────────────
 
 let currentUrl = '';
+let currentRawContent = '';
 
 async function loadManifest(url) {
   if (!url) { showState('empty'); return; }
 
   currentUrl = url;
+  currentRawContent = '';
   $('url-bar').value = url;
   document.title = new URL(url).pathname.split('/').pop() + ' — HLS Viewer';
 
@@ -258,6 +260,7 @@ async function loadManifest(url) {
     const result = await fetchManifest(url);
     const { content, status, contentType } = result;
 
+    currentRawContent = content;
     $('manifest-content').innerHTML = highlightManifest(content, url);
     showState('manifest');
 
@@ -280,8 +283,18 @@ function navigate(url) {
 // ─── Event listeners ─────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', () => {
+  // URL comes from either:
+  //   ?url=<encoded>  — opened via popup or viewer link
+  //   #<raw-url>      — redirected here by declarativeNetRequest interception
   const params = new URLSearchParams(window.location.search);
-  const initialUrl = params.get('url') || '';
+  let initialUrl = params.get('url') || '';
+
+  if (!initialUrl && location.hash.length > 1) {
+    // Fragment contains the raw manifest URL (no encoding applied by the redirect rule).
+    initialUrl = location.hash.slice(1);
+    // Rewrite the address bar to the canonical ?url= form and remove the fragment.
+    history.replaceState(null, '', '?url=' + encodeURIComponent(initialUrl));
+  }
 
   // Back button — enabled only if history allows it
   $('back-btn').disabled = history.length <= 1;
@@ -308,10 +321,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Open raw URL in new tab
+  // Open raw content in a new tab as plain text (via blob URL so the
+  // declarativeNetRequest rule doesn't intercept it again).
   $('raw-btn').addEventListener('click', () => {
-    const url = currentUrl || $('url-bar').value.trim();
-    if (url) window.open(url, '_blank', 'noopener');
+    if (currentRawContent) {
+      const blob = new Blob([currentRawContent], { type: 'text/plain' });
+      const blobUrl = URL.createObjectURL(blob);
+      window.open(blobUrl, '_blank', 'noopener');
+    } else {
+      const url = currentUrl || $('url-bar').value.trim();
+      if (url) window.open(url, '_blank', 'noopener');
+    }
   });
 
   // Load initial manifest
