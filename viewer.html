@@ -26,6 +26,9 @@
       <button id="copy-btn" class="nav-btn">Copy</button>
       <button id="raw-btn" class="nav-btn">Raw</button>
       <button id="download-btn" class="nav-btn nav-btn--download" title="Download manifest" disabled>&#8595;</button>
+      <div class="nav-divider"></div>
+      <button id="tab-source" class="nav-btn tab-btn tab-btn--active">Source</button>
+      <button id="tab-timeline" class="nav-btn tab-btn">Timeline</button>
     </nav>
 
     <div id="breadcrumbs" class="breadcrumbs" hidden></div>
@@ -36,7 +39,10 @@
     </div>
 
     <main class="content-wrap">
-      <pre id="manifest-content" class="manifest-content"></pre>
+      <div id="view-source">
+        <pre id="manifest-content" class="manifest-content"></pre>
+      </div>
+      <div id="view-timeline" class="tl-view" hidden></div>
     </main>
 
   </div>
