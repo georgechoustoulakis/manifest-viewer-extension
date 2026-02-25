@@ -421,15 +421,41 @@ function formatTick(s) {
   return `${h}:${String(min).padStart(2, '0')}:${String(rem).padStart(2, '0')}`;
 }
 
-function buildSegTip(seg, startTime, endTime) {
-  return [
-    `#${seg.seq}  ${seg.duration.toFixed(3)}s`,
-    `${startTime.toFixed(3)}s \u2192 ${endTime.toFixed(3)}s`,
-    seg.rawUri,
-    seg.programDateTime ? `PDT: ${seg.programDateTime}` : '',
-    seg.byterange       ? `Byte range: ${seg.byterange}` : '',
-    seg.key             ? `Encrypted: ${seg.key.method}` : '',
-  ].filter(Boolean).join('\n');
+function buildTipHtml(d) {
+  const row = (key, val) =>
+    `<div class="tt-row"><span class="tt-key">${key}</span><span class="tt-val">${val}</span></div>`;
+  const sep = () => '<div class="tt-sep"></div>';
+
+  let html = `<div class="tt-head">Segment #${d.seq}</div><div class="tt-body">`;
+
+  html += row('Disc run',    `#${d.disc}`);
+  html += row('Duration',    `${d.dur.toFixed(3)}s`);
+  html += sep();
+  html += row('Global',      `${d.gStart.toFixed(3)}s \u2192 ${d.gEnd.toFixed(3)}s`);
+  html += row('Within disc', `${d.dStart.toFixed(3)}s \u2192 ${d.dEnd.toFixed(3)}s`);
+  html += sep();
+  const fname = d.uri.split('/').pop().split('?')[0] || d.uri;
+  html += row('File', escapeHtml(fname));
+  html += `<div class="tt-uri-block" title="${escapeHtml(d.uri)}">${escapeHtml(d.uri)}</div>`;
+
+  if (d.resolution || d.bandwidth || d.frameRate || d.codecs) {
+    html += sep();
+    if (d.resolution) html += row('Resolution', escapeHtml(d.resolution));
+    if (d.bandwidth)  html += row('Bitrate',    `${(d.bandwidth / 1000).toFixed(0)} Kbps`);
+    if (d.frameRate)  html += row('Frame rate', `${escapeHtml(d.frameRate)} fps`);
+    if (d.codecs)     html += row('Codecs',     `<span class="tt-small">${escapeHtml(d.codecs)}</span>`);
+  }
+
+  const extras = [];
+  if (d.key)       extras.push(row('Encryption', escapeHtml(d.key.method)));
+  if (d.key?.uri)  extras.push(row('Key URI',    `<span class="tt-small">${escapeHtml(d.key.uri)}</span>`));
+  if (d.byterange) extras.push(row('Byte range', escapeHtml(d.byterange)));
+  if (d.pdt)       extras.push(row('PDT',        escapeHtml(d.pdt)));
+  if (d.title)     extras.push(row('Title',      escapeHtml(d.title)));
+  if (extras.length) { html += sep(); html += extras.join(''); }
+
+  html += '</div>';
+  return html;
 }
 
 function segFilename(seg) {
@@ -541,13 +567,20 @@ function buildTimelineHtml(rows, zoomFactor = 1) {
         const w = toX(ri, tEnd) - x - 1;
         if (w < 1) continue; // sub-pixel at current zoom — skip, zoom in to see
 
-        const cls   = seg.key ? 'tl2-seg--enc' : row.isAudio ? 'tl2-seg--audio' : 'tl2-seg--video';
-        const tip   = buildSegTip(seg, globalStart, globalEnd);
-        const fname = segFilename(seg);
+        const cls     = seg.key ? 'tl2-seg--enc' : row.isAudio ? 'tl2-seg--audio' : 'tl2-seg--video';
+        const fname   = segFilename(seg);
+        const tipData = escapeHtml(JSON.stringify({
+          seq: seg.seq, disc: ri, dur: seg.duration,
+          gStart: globalStart, gEnd: globalEnd,
+          dStart: tStart,      dEnd: tEnd,
+          uri: seg.rawUri, key: seg.key,
+          byterange: seg.byterange, pdt: seg.programDateTime, title: seg.title,
+          codecs: row.codecs || '', bandwidth: row.bandwidth || 0,
+          resolution: row.resolution || '', frameRate: row.frameRate || '',
+        }));
 
         html += `<div class="tl2-seg ${cls}${alt ? ' tl2-seg--alt' : ''}" ` +
-                `style="left:${x}px;width:${w}px" ` +
-                `title="${escapeHtml(tip)}">`;
+                `style="left:${x}px;width:${w}px" data-tip="${tipData}">`;
         if (w >= 30) html += `<span class="tl2-seg-seq">#${seg.seq}</span>`;
         if (w >= 50 && fname) html += `<span class="tl2-seg-fname">${escapeHtml(fname)}</span>`;
         if (w >= 90) html += `<span class="tl2-seg-time">${globalStart.toFixed(1)}\u2013${globalEnd.toFixed(1)}s</span>`;
@@ -591,9 +624,13 @@ async function buildMasterRows(parsed, baseUrl) {
     try {
       const { content } = await fetchManifest(stream.uri);
       const child = parseHls(content, stream.uri);
-      return { label, segs: child.segments, url: stream.uri };
+      return { label, segs: child.segments, url: stream.uri,
+               codecs: stream.codecs, bandwidth: stream.bandwidth,
+               resolution: stream.resolution, frameRate: stream.frameRate };
     } catch {
-      return { label, segs: [], url: stream.uri, error: true };
+      return { label, segs: [], url: stream.uri, error: true,
+               codecs: stream.codecs, bandwidth: stream.bandwidth,
+               resolution: stream.resolution, frameRate: stream.frameRate };
     }
   }));
 
@@ -857,6 +894,41 @@ document.addEventListener('DOMContentLoaded', () => {
     // Scroll so the point under the cursor stays fixed
     tlEl.scrollLeft = Math.max(0, mouseTrackX * factor - (e.clientX - rect.left - LABEL_W));
   }, { passive: false });
+
+  // ── Segment hover tooltip ──
+  const tlTip = $('tl-seg-tip');
+
+  function positionTip(cx, cy) {
+    const pad = 14, margin = 8;
+    const tw = tlTip.offsetWidth, th = tlTip.offsetHeight;
+    let x = cx + pad, y = cy + pad;
+    if (x + tw > window.innerWidth  - margin) x = cx - tw - pad;
+    if (y + th > window.innerHeight - margin) y = cy - th - pad;
+    tlTip.style.left = `${x}px`;
+    tlTip.style.top  = `${y}px`;
+  }
+
+  tlEl.addEventListener('mouseover', e => {
+    const seg = e.target.closest('.tl2-seg[data-tip]');
+    if (!seg) return;
+    try {
+      tlTip.innerHTML = buildTipHtml(JSON.parse(seg.dataset.tip));
+      tlTip.hidden = false;
+      positionTip(e.clientX, e.clientY);
+    } catch {}
+  });
+
+  tlEl.addEventListener('mousemove', e => {
+    if (!tlTip.hidden) positionTip(e.clientX, e.clientY);
+  });
+
+  tlEl.addEventListener('mouseout', e => {
+    if (e.target.closest('.tl2-seg') && !e.relatedTarget?.closest('.tl2-seg')) {
+      tlTip.hidden = true;
+    }
+  });
+
+  tlEl.addEventListener('mouseleave', () => { tlTip.hidden = true; });
 
   $('copy-btn').addEventListener('click', async () => {
     const url = currentUrl || $('url-bar').value.trim();

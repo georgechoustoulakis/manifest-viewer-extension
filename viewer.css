@@ -497,6 +497,71 @@ a.uri-segment:hover {
   padding: 25px 30px;
 }
 
+/* ---- Segment hover tooltip ---- */
+.tl-seg-tip {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.55);
+  font-size: 13px;
+  max-width: 380px;
+  min-width: 230px;
+  pointer-events: none;
+  position: fixed;
+  z-index: 1000;
+}
+
+.tt-head {
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  font-weight: 600;
+  padding: 8px 12px;
+}
+
+.tt-body {
+  padding: 5px 0 8px;
+}
+
+.tt-row {
+  align-items: baseline;
+  display: flex;
+  gap: 8px;
+  padding: 2px 12px;
+}
+
+.tt-key {
+  color: var(--subtext);
+  flex-shrink: 0;
+  font-size: 12px;
+  min-width: 88px;
+}
+
+.tt-val {
+  color: var(--text);
+  font-family: 'Menlo', 'Monaco', 'Consolas', monospace;
+  font-size: 12px;
+  word-break: break-all;
+}
+
+.tt-small {
+  font-size: 11px;
+}
+
+.tt-sep {
+  border-top: 1px solid var(--border);
+  margin: 4px 0;
+}
+
+.tt-uri-block {
+  color: var(--subtext);
+  font-family: 'Menlo', 'Monaco', 'Consolas', monospace;
+  font-size: 11px;
+  overflow: hidden;
+  padding: 1px 12px 3px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* ---- Scrollbar ---- */
 ::-webkit-scrollbar { height: 8px; width: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
