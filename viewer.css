@@ -468,7 +468,7 @@ a.uri-segment:hover {
   position: absolute;
   top: 0;
   width: 2px;
-  z-index: 5;
+  z-index: 1;
 }
 
 /* Discontinuity gap band — fills the empty region where a row is shorter than the max run */
