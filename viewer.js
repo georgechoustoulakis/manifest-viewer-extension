@@ -526,14 +526,13 @@ function buildTimelineHtml(rows, zoomFactor = 1) {
         const tip   = buildSegTip(seg, globalStart, globalEnd);
         const fname = segFilename(seg);
 
-        html += `<a class="tl2-seg ${cls}${alt ? ' tl2-seg--alt' : ''}" ` +
+        html += `<div class="tl2-seg ${cls}${alt ? ' tl2-seg--alt' : ''}" ` +
                 `style="left:${x}px;width:${w}px" ` +
-                `href="${escapeHtml(seg.uri)}" target="_blank" rel="noopener noreferrer" ` +
                 `title="${escapeHtml(tip)}">`;
         if (w >= 30) html += `<span class="tl2-seg-seq">#${seg.seq}</span>`;
         if (w >= 50 && fname) html += `<span class="tl2-seg-fname">${escapeHtml(fname)}</span>`;
         if (w >= 90) html += `<span class="tl2-seg-time">${globalStart.toFixed(1)}\u2013${globalEnd.toFixed(1)}s</span>`;
-        html += `</a>`;
+        html += `</div>`;
         alt = !alt;
       }
 

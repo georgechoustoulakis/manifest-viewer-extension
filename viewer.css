@@ -395,7 +395,6 @@ a.uri-segment:hover {
   overflow: hidden;
   padding: 3px 6px;
   position: absolute;
-  text-decoration: none;
   top: 6px;
   transition: filter 0.1s;
 }
