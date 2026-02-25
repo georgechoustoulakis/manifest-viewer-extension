@@ -437,7 +437,7 @@ function segFilename(seg) {
   catch { return seg.rawUri.split('/').pop() || ''; }
 }
 
-function buildTimelineHtml(rows) {
+function buildTimelineHtml(rows, zoomFactor = 1) {
   const validRows = rows.filter(r => r.segs.length > 0);
   if (!validRows.length) return `<div class="tl2-empty">No segment data available.</div>`;
 
@@ -456,7 +456,7 @@ function buildTimelineHtml(rows) {
   // Scale: target ~120px per average segment
   const totalSegs = validRows.reduce((s, r) => s + r.segs.length, 0);
   const avgDur    = totalDuration / (totalSegs / validRows.length);
-  const pxPerSec  = Math.max(120 / avgDur, 6);
+  const pxPerSec  = Math.max(120 / avgDur, 6) * zoomFactor;
 
   // Whether every row fills the full max duration for a given run — uses pixel
   // tolerance so tiny floating-point differences (<1px) don't trigger the band.
@@ -530,7 +530,8 @@ function buildTimelineHtml(rows) {
         const globalStart = runOffsSec[ri] + tStart;
         const globalEnd   = runOffsSec[ri] + tEnd;
         const x = toX(ri, tStart);
-        const w = Math.max(toX(ri, tEnd) - x - 1, 2);
+        const w = toX(ri, tEnd) - x - 1;
+        if (w < 1) continue; // sub-pixel at current zoom — skip, zoom in to see
 
         const cls   = seg.key ? 'tl2-seg--enc' : row.isAudio ? 'tl2-seg--audio' : 'tl2-seg--video';
         const tip   = buildSegTip(seg, globalStart, globalEnd);
@@ -617,14 +618,15 @@ async function renderTimeline() {
     return;
   }
   try {
-    let rows;
-    if (currentParsed.isMaster) {
-      el.innerHTML = `<div class="tl2-loading">Fetching renditions\u2026</div>`;
-      rows = await buildMasterRows(currentParsed, currentUrl);
-    } else {
-      rows = buildMediaRows(currentParsed, currentUrl);
+    if (!cachedTimelineRows) {
+      if (currentParsed.isMaster) {
+        el.innerHTML = `<div class="tl2-loading">Fetching renditions\u2026</div>`;
+        cachedTimelineRows = await buildMasterRows(currentParsed, currentUrl);
+      } else {
+        cachedTimelineRows = buildMediaRows(currentParsed, currentUrl);
+      }
     }
-    el.innerHTML = buildTimelineHtml(rows);
+    el.innerHTML = buildTimelineHtml(cachedTimelineRows, timelineZoom);
   } catch (err) {
     el.innerHTML = `<div class="tl2-empty">Error: ${escapeHtml(err.message)}</div>`;
   }
@@ -719,14 +721,18 @@ let currentUrl        = '';
 let currentRawContent = '';
 let currentChain      = [];
 let currentParsed     = null;
+let cachedTimelineRows = null;
+let timelineZoom       = 1.0;
 
 async function loadManifest(url) {
   if (!url) return;
 
-  currentUrl        = url;
-  currentRawContent = '';
-  currentParsed     = null;
-  timelineRendered  = false;
+  currentUrl         = url;
+  currentRawContent  = '';
+  currentParsed      = null;
+  timelineRendered   = false;
+  cachedTimelineRows = null;
+  timelineZoom       = 1.0;
 
   $('url-bar').value              = url;
   $('status-text').textContent    = '';
@@ -825,6 +831,28 @@ document.addEventListener('DOMContentLoaded', () => {
   $('tab-timeline').addEventListener('click', () => switchView('timeline'));
 
   setupDragScroll($('view-timeline'));
+
+  // Scroll wheel zooms the horizontal axis only (drag to pan)
+  const tlEl = $('view-timeline');
+  tlEl.addEventListener('wheel', e => {
+    if (!cachedTimelineRows) return;
+    e.preventDefault();
+
+    // Width of the sticky label column — must match .tl2-corner CSS width
+    const LABEL_W = 188;
+    const rect = tlEl.getBoundingClientRect();
+
+    // Cursor position in scroll-space before zoom (relative to track start)
+    const mouseTrackX = e.clientX - rect.left - LABEL_W + tlEl.scrollLeft;
+
+    const factor = e.deltaY < 0 ? 1.2 : 1 / 1.2;
+    timelineZoom = Math.max(0.05, Math.min(100, timelineZoom * factor));
+
+    tlEl.innerHTML = buildTimelineHtml(cachedTimelineRows, timelineZoom);
+
+    // Scroll so the point under the cursor stays fixed
+    tlEl.scrollLeft = Math.max(0, mouseTrackX * factor - (e.clientX - rect.left - LABEL_W));
+  }, { passive: false });
 
   $('copy-btn').addEventListener('click', async () => {
     const url = currentUrl || $('url-bar').value.trim();
