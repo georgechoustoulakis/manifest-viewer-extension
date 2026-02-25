@@ -387,164 +387,166 @@ function parseHls(content, baseUrl) {
   return result;
 }
 
-// ─── Timeline: media playlist ─────────────────────────────────────────────────
+// ─── Timeline helpers ─────────────────────────────────────────────────────────
 
-function renderTimelineMedia(parsed) {
-  const { segments, targetDuration, hasEndList, playlistType, mediaSequence } = parsed;
+function computeTimings(segments) {
+  let t = 0;
+  return segments.map(seg => {
+    const start = t;
+    t += seg.duration;
+    return { ...seg, startTime: start, endTime: t };
+  });
+}
 
-  if (!segments.length) return `<div class="tl-empty">No segments found.</div>`;
+function tickInterval(totalSec, pxPerSec) {
+  const candidates = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 1800, 3600];
+  return candidates.find(c => c * pxPerSec >= 60) ?? candidates[candidates.length - 1];
+}
 
-  const totalDuration  = segments.reduce((s, seg) => s + seg.duration, 0);
-  const avgDuration    = totalDuration / segments.length;
-  const discontinuities = segments.filter(s => s.discontinuity).length;
-  const encryptedCount = segments.filter(s => s.key).length;
-  const type = hasEndList ? 'VOD' : (playlistType === 'EVENT' ? 'EVENT' : 'LIVE');
+function formatTick(s) {
+  if (s < 60) return `${s}s`;
+  const m   = Math.floor(s / 60);
+  const rem = s % 60;
+  if (m < 60) return rem === 0 ? `${m}m` : `${m}:${String(rem).padStart(2, '0')}`;
+  const h   = Math.floor(m / 60);
+  const min = m % 60;
+  return `${h}:${String(min).padStart(2, '0')}:${String(rem).padStart(2, '0')}`;
+}
 
-  // ── Stats header ──
-  let html = `<div class="tl-header">`;
+function buildSegTip(seg) {
+  return [
+    `#${seg.seq}  ${seg.duration.toFixed(3)}s`,
+    `${seg.startTime.toFixed(3)}s \u2192 ${seg.endTime.toFixed(3)}s`,
+    seg.rawUri,
+    seg.programDateTime ? `PDT: ${seg.programDateTime}` : '',
+    seg.byterange       ? `Byte range: ${seg.byterange}` : '',
+    seg.key             ? `Encrypted: ${seg.key.method}` : '',
+  ].filter(Boolean).join('\n');
+}
 
-  const stat = (label, value, cls = '') =>
-    `<div class="tl-stat ${cls}"><span class="tl-stat-label">${label}</span><span class="tl-stat-value">${value}</span></div>`;
+function buildTimelineHtml(rows) {
+  const validRows = rows.filter(r => r.segs.length > 0);
+  if (!validRows.length) return `<div class="tl2-empty">No segment data available.</div>`;
 
-  html += stat('Type', type);
-  html += stat('Duration', formatDuration(totalDuration));
-  html += stat('Segments', segments.length);
-  html += stat('Avg segment', `${avgDuration.toFixed(2)}s`);
-  if (targetDuration) html += stat('Target dur.', `${targetDuration}s`);
-  html += stat('First seq.', mediaSequence);
-  if (discontinuities) html += stat('Discontinuities', discontinuities, 'tl-stat--warn');
-  if (encryptedCount)  html += stat('Encrypted', encryptedCount, 'tl-stat--enc');
-  html += `</div>`;
+  const totalDuration = Math.max(...validRows.map(r => r.segs.at(-1)?.endTime ?? 0));
+  if (totalDuration <= 0) return `<div class="tl2-empty">No timed segments found.</div>`;
 
-  // ── Segment track ──
-  html += `<div class="tl-track">`;
+  // Scale: target ~120px per average segment
+  const totalSegs = validRows.reduce((s, r) => s + r.segs.length, 0);
+  const avgDur    = totalDuration / (totalSegs / validRows.length);
+  const pxPerSec  = Math.max(120 / avgDur, 6);
+  const trackW    = Math.ceil(totalDuration * pxPerSec);
+  const interval  = tickInterval(totalDuration, pxPerSec);
 
-  let flip = false;
-  for (const seg of segments) {
-    if (seg.discontinuity) {
-      html += `<div class="tl-gap" title="Discontinuity before #${seg.seq}"></div>`;
-      flip = false;
-    }
+  let html = '';
 
-    const pct = totalDuration > 0
-      ? (seg.duration / totalDuration * 100)
-      : (100 / segments.length);
-
-    const cls = seg.key ? 'tl-seg--enc' : (flip ? 'tl-seg--b' : 'tl-seg--a');
-
-    const tip = [
-      `#${seg.seq}`,
-      `${seg.duration.toFixed(3)}s`,
-      seg.rawUri,
-      seg.programDateTime ? `PDT: ${seg.programDateTime}` : '',
-      seg.byterange       ? `Range: ${seg.byterange}`      : '',
-      seg.key             ? `${seg.key.method}`              : '',
-    ].filter(Boolean).join('\n');
-
-    html += `<div class="tl-seg ${cls}" style="width:${pct}%" title="${escapeHtml(tip)}"></div>`;
-    flip = !flip;
+  // ── Ruler ──
+  html += `<div class="tl2-ruler">`;
+  html += `<div class="tl2-corner"></div>`;
+  html += `<div class="tl2-ruler-inner" style="width:${trackW}px">`;
+  for (let t = 0; t <= totalDuration; t += interval) {
+    const x = Math.round(t * pxPerSec);
+    if (x > trackW) break;
+    html += `<div class="tl2-tick" style="left:${x}px">${escapeHtml(formatTick(t))}</div>`;
   }
+  html += `</div></div>`;
 
-  html += `</div>`;
+  // ── Rows ──
+  for (const row of rows) {
+    html += `<div class="tl2-row${row.isAudio ? ' tl2-row--audio' : ''}">`;
 
-  // ── Time axis ──
-  html += `<div class="tl-axis"><span>0:00</span><span>${formatDuration(totalDuration)}</span></div>`;
+    const [namePart = '', subPart = ''] = row.label.split('\n');
+    html += `<div class="tl2-row-label">`;
+    html += `<span class="tl2-row-name">${escapeHtml(namePart)}</span>`;
+    if (subPart)  html += `<span class="tl2-row-sub">${escapeHtml(subPart)}</span>`;
+    if (row.error) html += `<span class="tl2-row-err">fetch failed</span>`;
+    html += `</div>`;
 
-  // ── Legend ──
-  html += `<div class="tl-legend">`;
-  html += `<span class="tl-legend-item"><span class="tl-legend-swatch tl-seg--a"></span>Segment</span>`;
-  if (discontinuities) html += `<span class="tl-legend-item"><span class="tl-legend-swatch tl-gap" style="height:10px;width:6px;border-radius:1px"></span>Discontinuity</span>`;
-  if (encryptedCount)  html += `<span class="tl-legend-item"><span class="tl-legend-swatch tl-seg--enc"></span>Encrypted</span>`;
-  html += `</div>`;
+    html += `<div class="tl2-row-track" style="width:${trackW}px">`;
+    let alt = false;
+    for (const seg of row.segs) {
+      if (seg.discontinuity) alt = false;
+      const x   = Math.round(seg.startTime * pxPerSec);
+      const w   = Math.max(Math.round(seg.duration * pxPerSec) - 1, 2);
+      const cls = seg.key     ? 'tl2-seg--enc'
+                : row.isAudio ? 'tl2-seg--audio'
+                : 'tl2-seg--video';
+      const tip = buildSegTip(seg);
+
+      html += `<a class="tl2-seg ${cls}${alt ? ' tl2-seg--alt' : ''}" ` +
+              `style="left:${x}px;width:${w}px" ` +
+              `href="${escapeHtml(seg.uri)}" target="_blank" rel="noopener noreferrer" ` +
+              `title="${escapeHtml(tip)}">`;
+      if (w >= 36) html += `<span class="tl2-seg-seq">#${seg.seq}</span>`;
+      if (w >= 90) html += `<span class="tl2-seg-time">${seg.startTime.toFixed(1)}\u2013${seg.endTime.toFixed(1)}s</span>`;
+      html += `</a>`;
+      alt = !alt;
+    }
+    html += `</div></div>`;
+  }
 
   return html;
 }
 
-// ─── Timeline: master playlist ────────────────────────────────────────────────
+// ─── Row builders ─────────────────────────────────────────────────────────────
 
-function renderTimelineMaster(parsed) {
-  const { streams, media } = parsed;
-  if (!streams.length && !media.length) return `<div class="tl-empty">No renditions found.</div>`;
+function buildMediaRows(parsed, baseUrl) {
+  return [{ label: urlFilename(baseUrl), segs: computeTimings(parsed.segments) }];
+}
 
-  const sorted  = [...streams].sort((a, b) => b.bandwidth - a.bandwidth);
-  const maxBw   = sorted[0]?.bandwidth || 1;
+async function buildMasterRows(parsed, baseUrl) {
+  const sorted = [...parsed.streams].sort((a, b) => b.bandwidth - a.bandwidth);
 
-  const openLink = (uri) => {
-    const href = viewerUrlFor(uri, [...currentChain, currentUrl]);
-    return `<a class="tl-lane-open" href="${escapeHtml(href)}" title="${escapeHtml(uri)}">&#8599;</a>`;
-  };
-
-  let html = `<div class="tl-master">`;
-
-  // ── Video streams ──
-  if (sorted.length) {
-    html += `<div class="tl-group"><div class="tl-group-label">Video</div>`;
-    for (const s of sorted) {
-      const pct    = Math.max((s.bandwidth / maxBw) * 100, 4);
-      const bwLabel = s.bandwidth >= 1_000_000
-        ? `${(s.bandwidth / 1_000_000).toFixed(2)} Mbps`
-        : `${(s.bandwidth / 1000).toFixed(0)} Kbps`;
-      const meta   = [s.codecs, s.frameRate ? `${s.frameRate} fps` : ''].filter(Boolean).join(' · ');
-
-      html += `<div class="tl-lane">`;
-      html += `  <div class="tl-lane-res">${escapeHtml(s.resolution || '—')}</div>`;
-      html += `  <div class="tl-lane-track">`;
-      html += `    <div class="tl-lane-bar" style="width:${pct}%">`;
-      html += `      <span class="tl-lane-bw">${escapeHtml(bwLabel)}</span>`;
-      if (meta) html += `<span class="tl-lane-meta">${escapeHtml(meta)}</span>`;
-      html += `    </div>`;
-      html += `  </div>`;
-      html += openLink(s.uri);
-      html += `</div>`;
+  const videoRows = await Promise.all(sorted.map(async stream => {
+    const bwLabel = stream.bandwidth >= 1_000_000
+      ? `${(stream.bandwidth / 1_000_000).toFixed(2)} Mbps`
+      : `${(stream.bandwidth / 1000).toFixed(0)} Kbps`;
+    const label = stream.resolution ? `${stream.resolution}\n${bwLabel}` : bwLabel;
+    try {
+      const { content } = await fetchManifest(stream.uri);
+      const child = parseHls(content, stream.uri);
+      return { label, segs: computeTimings(child.segments), url: stream.uri };
+    } catch {
+      return { label, segs: [], url: stream.uri, error: true };
     }
-    html += `</div>`;
-  }
+  }));
 
-  // ── Audio tracks ──
-  const audio = media.filter(m => m.type === 'AUDIO');
-  if (audio.length) {
-    html += `<div class="tl-group"><div class="tl-group-label">Audio</div>`;
-    for (const t of audio) {
-      const info = [t.name, t.language, t.isDefault ? 'default' : ''].filter(Boolean).join(' · ');
-      html += `<div class="tl-lane tl-lane--aux">`;
-      html += `  <div class="tl-lane-res">${escapeHtml(t.groupId)}</div>`;
-      html += `  <div class="tl-lane-aux-info">${escapeHtml(info)}</div>`;
-      if (t.uri) html += openLink(t.uri);
-      html += `</div>`;
-    }
-    html += `</div>`;
-  }
+  const audioRows = await Promise.all(
+    parsed.media.filter(m => m.uri && m.type === 'AUDIO').map(async track => {
+      const label = `${track.name}${track.language ? ` (${track.language})` : ''}\n${track.groupId}`;
+      try {
+        const { content } = await fetchManifest(track.uri);
+        const child = parseHls(content, track.uri);
+        return { label, segs: computeTimings(child.segments), url: track.uri, isAudio: true };
+      } catch {
+        return { label, segs: [], url: track.uri, isAudio: true, error: true };
+      }
+    })
+  );
 
-  // ── Subtitle tracks ──
-  const subs = media.filter(m => m.type === 'SUBTITLES');
-  if (subs.length) {
-    html += `<div class="tl-group"><div class="tl-group-label">Subtitles</div>`;
-    for (const t of subs) {
-      const info = [t.name, t.language, t.isForced ? 'forced' : ''].filter(Boolean).join(' · ');
-      html += `<div class="tl-lane tl-lane--aux">`;
-      html += `  <div class="tl-lane-res">${escapeHtml(t.groupId)}</div>`;
-      html += `  <div class="tl-lane-aux-info">${escapeHtml(info)}</div>`;
-      if (t.uri) html += openLink(t.uri);
-      html += `</div>`;
-    }
-    html += `</div>`;
-  }
-
-  html += `</div>`;
-  return html;
+  return [...videoRows, ...audioRows];
 }
 
 // ─── Timeline dispatch ────────────────────────────────────────────────────────
 
-function renderTimeline() {
+async function renderTimeline() {
   const el = $('view-timeline');
   if (!currentParsed) {
-    el.innerHTML = `<div class="tl-empty">Timeline is only available for HLS manifests.</div>`;
+    el.innerHTML = `<div class="tl2-empty">Timeline is only available for HLS manifests.</div>`;
     return;
   }
-  el.innerHTML = currentParsed.isMaster
-    ? renderTimelineMaster(currentParsed)
-    : renderTimelineMedia(currentParsed);
+  try {
+    let rows;
+    if (currentParsed.isMaster) {
+      el.innerHTML = `<div class="tl2-loading">Fetching renditions\u2026</div>`;
+      rows = await buildMasterRows(currentParsed, currentUrl);
+    } else {
+      rows = buildMediaRows(currentParsed, currentUrl);
+    }
+    el.innerHTML = buildTimelineHtml(rows);
+  } catch (err) {
+    el.innerHTML = `<div class="tl2-empty">Error: ${escapeHtml(err.message)}</div>`;
+  }
 }
 
 // ─── Tab switching ────────────────────────────────────────────────────────────
@@ -552,7 +554,7 @@ function renderTimeline() {
 let currentView      = 'source';
 let timelineRendered = false;
 
-function switchView(view) {
+function switchView(view, pushHistory = true) {
   currentView = view;
   $('tab-source').classList.toggle('tab-btn--active', view === 'source');
   $('tab-timeline').classList.toggle('tab-btn--active', view === 'timeline');
@@ -562,6 +564,11 @@ function switchView(view) {
   if (view === 'timeline' && !timelineRendered) {
     renderTimeline();
     timelineRendered = true;
+  }
+
+  if (pushHistory) {
+    history.pushState({ view }, '');
+    $('back-btn').disabled = false;
   }
 }
 
@@ -673,8 +680,20 @@ document.addEventListener('DOMContentLoaded', () => {
   currentChain = params.getAll('back');
   renderBreadcrumbs(currentChain, initialUrl);
 
+  // Stamp the initial state so popstate can detect "back to root source"
+  history.replaceState({ view: 'source', initial: true }, '');
+
   $('back-btn').disabled = history.length <= 1;
   $('back-btn').addEventListener('click', () => history.back());
+
+  window.addEventListener('popstate', e => {
+    const view = e.state?.view;
+    if (view === 'timeline' || view === 'source') {
+      switchView(view, false);
+      // Re-disable back btn only when restored to the original source entry with no parent chain
+      $('back-btn').disabled = e.state?.initial === true && currentChain.length === 0;
+    }
+  });
 
   $('url-bar').addEventListener('keydown', e => {
     if (e.key === 'Enter') navigate($('url-bar').value.trim());

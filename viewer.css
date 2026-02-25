@@ -275,198 +275,159 @@ a.uri-segment:hover {
   opacity: 0.8;
 }
 
-/* ---- Timeline view ---- */
-.tl-view {
-  padding: 20px 24px;
-}
+/* ---- Timeline view (tl2) ---- */
 
-.tl-empty {
-  color: var(--subtext);
-  padding: 40px;
-  text-align: center;
-}
-
-/* Stats header */
-.tl-header {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 24px;
-  margin-bottom: 28px;
-}
-
-.tl-stat {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.tl-stat-label {
-  color: var(--muted);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.tl-stat-value {
-  font-family: 'Menlo', 'Monaco', 'Consolas', monospace;
-  font-size: 13px;
-}
-
-.tl-stat--warn .tl-stat-value { color: var(--c-number); }
-.tl-stat--enc  .tl-stat-value { color: var(--c-string); }
-
-/* Segment track */
-.tl-track {
-  display: flex;
-  height: 40px;
-  border-radius: 5px;
-  overflow: hidden;
-  background: var(--surface);
-}
-
-.tl-seg {
-  cursor: default;
-  flex-shrink: 0;
-  min-width: 2px;
-  transition: filter 0.1s;
-}
-
-.tl-seg:hover { filter: brightness(1.3); }
-
-.tl-seg--a   { background: #2d6fa3; }
-.tl-seg--b   { background: #1e5280; }
-.tl-seg--enc { background: #9b3a4f; }
-
-.tl-gap {
-  background: #c2541a;
-  cursor: default;
-  flex-shrink: 0;
-  width: 4px;
-  opacity: 0.9;
-}
-
-/* Axis and legend */
-.tl-axis {
-  display: flex;
-  justify-content: space-between;
-  color: var(--muted);
-  font-size: 10px;
-  margin: 4px 0 20px;
-}
-
-.tl-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  margin-bottom: 8px;
-}
-
-.tl-legend-item {
-  align-items: center;
-  color: var(--subtext);
-  display: flex;
-  font-size: 11px;
-  gap: 6px;
-}
-
-.tl-legend-swatch {
-  border-radius: 2px;
-  display: inline-block;
-  height: 10px;
-  width: 16px;
-}
-
-/* Master playlist lanes */
-.tl-master {
-  display: flex;
-  flex-direction: column;
-}
-
-.tl-group {
-  margin-bottom: 24px;
-}
-
-.tl-group-label {
-  color: var(--subtext);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  margin-bottom: 10px;
-  text-transform: uppercase;
-}
-
-.tl-lane {
-  align-items: center;
-  display: flex;
-  gap: 12px;
-  margin-bottom: 8px;
-}
-
-.tl-lane-res {
-  color: var(--text);
-  flex-shrink: 0;
-  font-family: 'Menlo', 'Monaco', 'Consolas', monospace;
-  font-size: 11px;
-  text-align: right;
-  width: 80px;
-}
-
-.tl-lane-track {
-  background: var(--surface);
-  border-radius: 4px;
-  flex: 1;
-  height: 28px;
-  overflow: hidden;
-}
-
-.tl-lane-bar {
-  align-items: center;
-  background: #2d6fa3;
-  border-radius: 4px;
-  display: flex;
-  gap: 8px;
+/* The timeline div owns its own scroll so sticky inside works */
+#view-timeline {
   height: 100%;
-  min-width: 60px;
-  padding: 0 10px;
-  overflow: hidden;
+  overflow: auto;
 }
 
-.tl-lane-bw {
-  color: #fff;
+.tl2-ruler {
+  align-items: stretch;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  height: 28px;
+  position: sticky;
+  top: 0;
+  z-index: 3;
+}
+
+/* Corner cell: sticky on both axes (top via ruler, left via itself) */
+.tl2-corner {
+  background: var(--bg);
+  border-right: 1px solid var(--border);
   flex-shrink: 0;
-  font-family: 'Menlo', 'Monaco', 'Consolas', monospace;
-  font-size: 11px;
-  font-weight: 600;
+  left: 0;
+  position: sticky;
+  width: 150px;
+  z-index: 4;
+}
+
+.tl2-ruler-inner {
+  flex-shrink: 0;
+  position: relative;
+}
+
+.tl2-tick {
+  align-items: flex-end;
+  border-left: 1px solid var(--border);
+  bottom: 0;
+  color: var(--muted);
+  display: flex;
+  font-size: 10px;
+  padding-bottom: 4px;
+  padding-left: 4px;
+  position: absolute;
+  top: 0;
   white-space: nowrap;
 }
 
-.tl-lane-meta {
-  color: rgba(255, 255, 255, 0.55);
+.tl2-row {
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  min-height: 52px;
+}
+
+.tl2-row-label {
+  background: var(--bg);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  gap: 2px;
+  justify-content: center;
+  left: 0;
+  padding: 6px 10px;
+  position: sticky;
+  width: 150px;
+  z-index: 2;
+}
+
+.tl2-row-name {
+  color: var(--text);
+  font-family: 'Menlo', 'Monaco', 'Consolas', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tl2-row-sub {
+  color: var(--subtext);
+  font-family: 'Menlo', 'Monaco', 'Consolas', monospace;
   font-size: 10px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.tl-lane--aux .tl-lane-track { display: none; }
-
-.tl-lane-aux-info {
-  color: var(--subtext);
-  flex: 1;
-  font-size: 12px;
+.tl2-row-err {
+  color: var(--c-string);
+  font-size: 10px;
 }
 
-.tl-lane-open {
-  color: var(--accent);
+.tl2-row-track {
   flex-shrink: 0;
-  font-size: 14px;
-  text-decoration: none;
-  transition: color 0.15s;
-  width: 20px;
+  position: relative;
 }
 
-.tl-lane-open:hover { color: var(--accent-hover); }
+.tl2-seg {
+  border-radius: 3px;
+  bottom: 6px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  overflow: hidden;
+  padding: 2px 5px;
+  position: absolute;
+  text-decoration: none;
+  top: 6px;
+  transition: filter 0.1s;
+}
+
+.tl2-seg:hover { filter: brightness(1.3); z-index: 5; }
+
+.tl2-seg--video             { background: #2d6fa3; }
+.tl2-seg--video.tl2-seg--alt { background: #1e5280; }
+.tl2-seg--audio             { background: #2d8a5a; }
+.tl2-seg--audio.tl2-seg--alt { background: #1e6641; }
+.tl2-seg--enc               { background: #9b3a4f; }
+
+.tl2-row--audio .tl2-seg { bottom: 10px; top: 10px; }
+
+.tl2-seg-seq {
+  color: #fff;
+  font-family: 'Menlo', 'Monaco', 'Consolas', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tl2-seg-time {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 9px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tl2-empty {
+  color: var(--subtext);
+  padding: 40px;
+  text-align: center;
+}
+
+.tl2-loading {
+  color: var(--subtext);
+  font-size: 12px;
+  padding: 20px 24px;
+}
 
 /* ---- Scrollbar ---- */
 ::-webkit-scrollbar { height: 6px; width: 6px; }
