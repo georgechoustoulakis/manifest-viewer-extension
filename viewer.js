@@ -532,9 +532,10 @@ function buildTimelineHtml(rows) {
         alt = !alt;
       }
 
-      // Disc gap band between runs
+      // Disc gap band: always at the shared boundary (max run end across all rows)
+      // so shorter rows show empty space before the separator, not after
       if (ri < numRuns - 1) {
-        const sepX = toX(ri, runDuration(run));
+        const sepX = toX(ri, maxRunDurs[ri]);
         html += `<div class="tl2-disc-sep" style="left:${sepX}px;width:${DISC_GAP_PX}px"></div>`;
       }
     }
