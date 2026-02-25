@@ -481,7 +481,10 @@ function buildTimelineHtml(rows) {
   html += `<div class="tl2-corner"></div>`;
   html += `<div class="tl2-ruler-inner" style="width:${trackW}px">`;
   for (let ri = 0; ri < numRuns; ri++) {
-    for (let t = 0; t < maxRunDurs[ri]; t += interval) {
+    // Stop half an interval before run end so the last tick doesn't crowd
+    // the first tick of the next run (both would label the same time value).
+    const tickStop = maxRunDurs[ri] - interval * 0.5;
+    for (let t = 0; t <= tickStop; t += interval) {
       const x = toX(ri, t);
       html += `<div class="tl2-tick" style="left:${x}px">${escapeHtml(formatTick(Math.round(runOffsSec[ri] + t)))}</div>`;
     }
