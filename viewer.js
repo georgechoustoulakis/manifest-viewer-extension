@@ -451,16 +451,19 @@ function buildTimelineHtml(rows) {
   );
   const totalDuration = maxRunDurs.reduce((s, d) => s + d, 0);
 
-  // Whether every row fills the full max duration for a given run (no gap anywhere)
-  const runIsAligned = Array.from({ length: numRuns }, (_, ri) =>
-    rowRuns.every(runs => ri >= runs.length || Math.abs(runDuration(runs[ri]) - maxRunDurs[ri]) < 0.001)
-  );
   if (totalDuration <= 0) return `<div class="tl2-empty">No timed segments found.</div>`;
 
   // Scale: target ~120px per average segment
   const totalSegs = validRows.reduce((s, r) => s + r.segs.length, 0);
   const avgDur    = totalDuration / (totalSegs / validRows.length);
   const pxPerSec  = Math.max(120 / avgDur, 6);
+
+  // Whether every row fills the full max duration for a given run — uses pixel
+  // tolerance so tiny floating-point differences (<1px) don't trigger the band.
+  const runIsAligned = Array.from({ length: numRuns }, (_, ri) =>
+    rowRuns.every(runs => ri >= runs.length ||
+      Math.abs(runDuration(runs[ri]) - maxRunDurs[ri]) * pxPerSec < 1)
+  );
 
   // Global run offsets in seconds
   const runOffsSec = [];
