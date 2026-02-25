@@ -450,6 +450,11 @@ function buildTimelineHtml(rows) {
     Math.max(...rowRuns.map(runs => ri < runs.length ? runDuration(runs[ri]) : 0))
   );
   const totalDuration = maxRunDurs.reduce((s, d) => s + d, 0);
+
+  // Whether every row fills the full max duration for a given run (no gap anywhere)
+  const runIsAligned = Array.from({ length: numRuns }, (_, ri) =>
+    rowRuns.every(runs => ri >= runs.length || Math.abs(runDuration(runs[ri]) - maxRunDurs[ri]) < 0.001)
+  );
   if (totalDuration <= 0) return `<div class="tl2-empty">No timed segments found.</div>`;
 
   // Scale: target ~120px per average segment
@@ -482,7 +487,11 @@ function buildTimelineHtml(rows) {
     }
     if (ri < numRuns - 1) {
       const sepX = toX(ri, maxRunDurs[ri]);
-      html += `<div class="tl2-disc-sep" style="left:${sepX}px;width:${DISC_GAP_PX}px"></div>`;
+      if (runIsAligned[ri]) {
+        html += `<div class="tl2-disc-line" style="left:${sepX + Math.floor(DISC_GAP_PX / 2)}px"></div>`;
+      } else {
+        html += `<div class="tl2-disc-sep" style="left:${sepX}px;width:${DISC_GAP_PX}px"></div>`;
+      }
     }
   }
   html += `</div></div>`;
@@ -532,11 +541,20 @@ function buildTimelineHtml(rows) {
         alt = !alt;
       }
 
-      // Disc gap band: always at the shared boundary (max run end across all rows)
-      // so shorter rows show empty space before the separator, not after
+      // Disc separator: thin line when this row ends exactly at the shared boundary;
+      // hatched band (extending from row end through the gap zone) when it's shorter.
       if (ri < numRuns - 1) {
-        const sepX = toX(ri, maxRunDurs[ri]);
-        html += `<div class="tl2-disc-sep" style="left:${sepX}px;width:${DISC_GAP_PX}px"></div>`;
+        const sepX    = toX(ri, maxRunDurs[ri]);
+        const rowEndX = toX(ri, runDuration(run));
+        if (rowEndX >= sepX - 1) {
+          // Row fills the run — just a thin line in the middle of the gap zone
+          html += `<div class="tl2-disc-line" style="left:${sepX + Math.floor(DISC_GAP_PX / 2)}px"></div>`;
+        } else {
+          // Row is shorter — extend the band from where this row's segments end
+          // all the way through the gap zone so the whole empty region is marked
+          const bandW = sepX + DISC_GAP_PX - rowEndX;
+          html += `<div class="tl2-disc-sep" style="left:${rowEndX}px;width:${bandW}px"></div>`;
+        }
       }
     }
     html += `</div></div>`;

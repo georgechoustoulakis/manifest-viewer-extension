@@ -437,6 +437,15 @@ a.uri-segment:hover {
   white-space: nowrap;
 }
 
+/* Thin discontinuity marker — used when all rows align at the boundary */
+.tl2-disc-line {
+  background: rgba(243, 139, 168, 0.6);
+  bottom: 0;
+  position: absolute;
+  top: 0;
+  width: 2px;
+}
+
 /* Discontinuity gap band (appears in ruler and row tracks) */
 .tl2-disc-sep {
   background: repeating-linear-gradient(
