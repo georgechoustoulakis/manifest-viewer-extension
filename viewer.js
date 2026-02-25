@@ -389,13 +389,21 @@ function parseHls(content, baseUrl) {
 
 // ─── Timeline helpers ─────────────────────────────────────────────────────────
 
-function computeTimings(segments) {
-  let t = 0;
-  return segments.map(seg => {
-    const start = t;
-    t += seg.duration;
-    return { ...seg, startTime: start, endTime: t };
-  });
+const DISC_GAP_PX = 20; // pixel gap between discontinuity runs
+
+function splitIntoRuns(segs) {
+  const runs = [];
+  let cur = [];
+  for (const seg of segs) {
+    if (seg.discontinuity && cur.length > 0) { runs.push(cur); cur = []; }
+    cur.push(seg);
+  }
+  if (cur.length > 0) runs.push(cur);
+  return runs;
+}
+
+function runDuration(run) {
+  return run.reduce((s, seg) => s + seg.duration, 0);
 }
 
 function tickInterval(totalSec, pxPerSec) {
@@ -413,10 +421,10 @@ function formatTick(s) {
   return `${h}:${String(min).padStart(2, '0')}:${String(rem).padStart(2, '0')}`;
 }
 
-function buildSegTip(seg) {
+function buildSegTip(seg, startTime, endTime) {
   return [
     `#${seg.seq}  ${seg.duration.toFixed(3)}s`,
-    `${seg.startTime.toFixed(3)}s \u2192 ${seg.endTime.toFixed(3)}s`,
+    `${startTime.toFixed(3)}s \u2192 ${endTime.toFixed(3)}s`,
     seg.rawUri,
     seg.programDateTime ? `PDT: ${seg.programDateTime}` : '',
     seg.byterange       ? `Byte range: ${seg.byterange}` : '',
@@ -424,19 +432,42 @@ function buildSegTip(seg) {
   ].filter(Boolean).join('\n');
 }
 
+function segFilename(seg) {
+  try { return new URL(seg.uri).pathname.split('/').pop() || ''; }
+  catch { return seg.rawUri.split('/').pop() || ''; }
+}
+
 function buildTimelineHtml(rows) {
   const validRows = rows.filter(r => r.segs.length > 0);
   if (!validRows.length) return `<div class="tl2-empty">No segment data available.</div>`;
 
-  const totalDuration = Math.max(...validRows.map(r => r.segs.at(-1)?.endTime ?? 0));
+  // Split each row into discontinuity runs
+  const rowRuns  = validRows.map(row => splitIntoRuns(row.segs));
+  const numRuns  = Math.max(...rowRuns.map(r => r.length), 1);
+
+  // Per-run max duration across all rows (aligns discontinuity boundaries)
+  const maxRunDurs = Array.from({ length: numRuns }, (_, ri) =>
+    Math.max(...rowRuns.map(runs => ri < runs.length ? runDuration(runs[ri]) : 0))
+  );
+  const totalDuration = maxRunDurs.reduce((s, d) => s + d, 0);
   if (totalDuration <= 0) return `<div class="tl2-empty">No timed segments found.</div>`;
 
   // Scale: target ~120px per average segment
   const totalSegs = validRows.reduce((s, r) => s + r.segs.length, 0);
   const avgDur    = totalDuration / (totalSegs / validRows.length);
   const pxPerSec  = Math.max(120 / avgDur, 6);
-  const trackW    = Math.ceil(totalDuration * pxPerSec);
-  const interval  = tickInterval(totalDuration, pxPerSec);
+
+  // Global run offsets in seconds
+  const runOffsSec = [];
+  let tOff = 0;
+  for (const dur of maxRunDurs) { runOffsSec.push(tOff); tOff += dur; }
+
+  const trackW   = Math.ceil(totalDuration * pxPerSec) + (numRuns - 1) * DISC_GAP_PX;
+  const interval = tickInterval(totalDuration, pxPerSec);
+
+  // Convert run-relative time → pixel x
+  const toX = (ri, tRel) =>
+    Math.round(runOffsSec[ri] * pxPerSec + ri * DISC_GAP_PX + tRel * pxPerSec);
 
   let html = '';
 
@@ -444,43 +475,68 @@ function buildTimelineHtml(rows) {
   html += `<div class="tl2-ruler">`;
   html += `<div class="tl2-corner"></div>`;
   html += `<div class="tl2-ruler-inner" style="width:${trackW}px">`;
-  for (let t = 0; t <= totalDuration; t += interval) {
-    const x = Math.round(t * pxPerSec);
-    if (x > trackW) break;
-    html += `<div class="tl2-tick" style="left:${x}px">${escapeHtml(formatTick(t))}</div>`;
+  for (let ri = 0; ri < numRuns; ri++) {
+    for (let t = 0; t < maxRunDurs[ri]; t += interval) {
+      const x = toX(ri, t);
+      html += `<div class="tl2-tick" style="left:${x}px">${escapeHtml(formatTick(Math.round(runOffsSec[ri] + t)))}</div>`;
+    }
+    if (ri < numRuns - 1) {
+      const sepX = toX(ri, maxRunDurs[ri]);
+      html += `<div class="tl2-disc-sep" style="left:${sepX}px;width:${DISC_GAP_PX}px"></div>`;
+    }
   }
   html += `</div></div>`;
 
   // ── Rows ──
-  for (const row of rows) {
+  for (let rowIdx = 0; rowIdx < validRows.length; rowIdx++) {
+    const row  = validRows[rowIdx];
+    const runs = rowRuns[rowIdx];
+
     html += `<div class="tl2-row${row.isAudio ? ' tl2-row--audio' : ''}">`;
 
     const [namePart = '', subPart = ''] = row.label.split('\n');
     html += `<div class="tl2-row-label">`;
     html += `<span class="tl2-row-name">${escapeHtml(namePart)}</span>`;
-    if (subPart)  html += `<span class="tl2-row-sub">${escapeHtml(subPart)}</span>`;
+    if (subPart)   html += `<span class="tl2-row-sub">${escapeHtml(subPart)}</span>`;
     if (row.error) html += `<span class="tl2-row-err">fetch failed</span>`;
     html += `</div>`;
 
     html += `<div class="tl2-row-track" style="width:${trackW}px">`;
-    let alt = false;
-    for (const seg of row.segs) {
-      if (seg.discontinuity) alt = false;
-      const x   = Math.round(seg.startTime * pxPerSec);
-      const w   = Math.max(Math.round(seg.duration * pxPerSec) - 1, 2);
-      const cls = seg.key     ? 'tl2-seg--enc'
-                : row.isAudio ? 'tl2-seg--audio'
-                : 'tl2-seg--video';
-      const tip = buildSegTip(seg);
+    for (let ri = 0; ri < runs.length; ri++) {
+      const run = runs[ri];
+      let tRel = 0;
+      let alt  = false;
 
-      html += `<a class="tl2-seg ${cls}${alt ? ' tl2-seg--alt' : ''}" ` +
-              `style="left:${x}px;width:${w}px" ` +
-              `href="${escapeHtml(seg.uri)}" target="_blank" rel="noopener noreferrer" ` +
-              `title="${escapeHtml(tip)}">`;
-      if (w >= 36) html += `<span class="tl2-seg-seq">#${seg.seq}</span>`;
-      if (w >= 90) html += `<span class="tl2-seg-time">${seg.startTime.toFixed(1)}\u2013${seg.endTime.toFixed(1)}s</span>`;
-      html += `</a>`;
-      alt = !alt;
+      for (const seg of run) {
+        const tStart = tRel;
+        tRel += seg.duration;
+        const tEnd = tRel;
+
+        const globalStart = runOffsSec[ri] + tStart;
+        const globalEnd   = runOffsSec[ri] + tEnd;
+        const x = toX(ri, tStart);
+        const w = Math.max(toX(ri, tEnd) - x - 1, 2);
+
+        const cls   = seg.key ? 'tl2-seg--enc' : row.isAudio ? 'tl2-seg--audio' : 'tl2-seg--video';
+        const tip   = buildSegTip(seg, globalStart, globalEnd);
+        const fname = segFilename(seg);
+
+        html += `<a class="tl2-seg ${cls}${alt ? ' tl2-seg--alt' : ''}" ` +
+                `style="left:${x}px;width:${w}px" ` +
+                `href="${escapeHtml(seg.uri)}" target="_blank" rel="noopener noreferrer" ` +
+                `title="${escapeHtml(tip)}">`;
+        if (w >= 30) html += `<span class="tl2-seg-seq">#${seg.seq}</span>`;
+        if (w >= 50 && fname) html += `<span class="tl2-seg-fname">${escapeHtml(fname)}</span>`;
+        if (w >= 90) html += `<span class="tl2-seg-time">${globalStart.toFixed(1)}\u2013${globalEnd.toFixed(1)}s</span>`;
+        html += `</a>`;
+        alt = !alt;
+      }
+
+      // Disc gap band between runs
+      if (ri < numRuns - 1) {
+        const sepX = toX(ri, runDuration(run));
+        html += `<div class="tl2-disc-sep" style="left:${sepX}px;width:${DISC_GAP_PX}px"></div>`;
+      }
     }
     html += `</div></div>`;
   }
@@ -491,7 +547,7 @@ function buildTimelineHtml(rows) {
 // ─── Row builders ─────────────────────────────────────────────────────────────
 
 function buildMediaRows(parsed, baseUrl) {
-  return [{ label: urlFilename(baseUrl), segs: computeTimings(parsed.segments) }];
+  return [{ label: urlFilename(baseUrl), segs: parsed.segments }];
 }
 
 async function buildMasterRows(parsed, baseUrl) {
@@ -505,7 +561,7 @@ async function buildMasterRows(parsed, baseUrl) {
     try {
       const { content } = await fetchManifest(stream.uri);
       const child = parseHls(content, stream.uri);
-      return { label, segs: computeTimings(child.segments), url: stream.uri };
+      return { label, segs: child.segments, url: stream.uri };
     } catch {
       return { label, segs: [], url: stream.uri, error: true };
     }
@@ -517,7 +573,7 @@ async function buildMasterRows(parsed, baseUrl) {
       try {
         const { content } = await fetchManifest(track.uri);
         const child = parseHls(content, track.uri);
-        return { label, segs: computeTimings(child.segments), url: track.uri, isAudio: true };
+        return { label, segs: child.segments, url: track.uri, isAudio: true };
       } catch {
         return { label, segs: [], url: track.uri, isAudio: true, error: true };
       }
@@ -547,6 +603,46 @@ async function renderTimeline() {
   } catch (err) {
     el.innerHTML = `<div class="tl2-empty">Error: ${escapeHtml(err.message)}</div>`;
   }
+}
+
+// ─── Drag-to-scroll ───────────────────────────────────────────────────────────
+
+function setupDragScroll(el) {
+  let isDragging = false, startX = 0, startY = 0, scrollLeft = 0, scrollTop = 0, hasDragged = false;
+
+  el.addEventListener('mousedown', e => {
+    if (e.button !== 0 || e.target.closest('a, button')) return;
+    isDragging  = true;
+    hasDragged  = false;
+    startX      = e.clientX;
+    startY      = e.clientY;
+    scrollLeft  = el.scrollLeft;
+    scrollTop   = el.scrollTop;
+    el.classList.add('tl-dragging');
+  });
+
+  const stopDrag = () => {
+    if (!isDragging) return;
+    isDragging = false;
+    el.classList.remove('tl-dragging');
+  };
+
+  document.addEventListener('mouseup',   stopDrag);
+  document.addEventListener('mouseleave', stopDrag);
+
+  document.addEventListener('mousemove', e => {
+    if (!isDragging) return;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) hasDragged = true;
+    el.scrollLeft = scrollLeft - dx;
+    el.scrollTop  = scrollTop  - dy;
+  });
+
+  // Prevent link navigation when the mouse moved during drag
+  el.addEventListener('click', e => {
+    if (hasDragged) { e.preventDefault(); e.stopPropagation(); hasDragged = false; }
+  }, true);
 }
 
 // ─── Tab switching ────────────────────────────────────────────────────────────
@@ -702,6 +798,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   $('tab-source').addEventListener('click',   () => switchView('source'));
   $('tab-timeline').addEventListener('click', () => switchView('timeline'));
+
+  setupDragScroll($('view-timeline'));
 
   $('copy-btn').addEventListener('click', async () => {
     const url = currentUrl || $('url-bar').value.trim();

@@ -279,8 +279,19 @@ a.uri-segment:hover {
 
 /* The timeline div owns its own scroll so sticky inside works */
 #view-timeline {
+  cursor: grab;
   height: 100%;
   overflow: auto;
+}
+
+#view-timeline.tl-dragging {
+  cursor: grabbing !important;
+  user-select: none;
+}
+
+#view-timeline.tl-dragging * {
+  cursor: grabbing !important;
+  pointer-events: none !important;
 }
 
 .tl2-ruler {
@@ -409,12 +420,37 @@ a.uri-segment:hover {
   white-space: nowrap;
 }
 
+.tl2-seg-fname {
+  color: rgba(255, 255, 255, 0.75);
+  font-family: 'Menlo', 'Monaco', 'Consolas', monospace;
+  font-size: 9px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .tl2-seg-time {
   color: rgba(255, 255, 255, 0.6);
   font-size: 9px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Discontinuity gap band (appears in ruler and row tracks) */
+.tl2-disc-sep {
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(243, 139, 168, 0.10),
+    rgba(243, 139, 168, 0.10) 3px,
+    transparent 3px,
+    transparent 6px
+  );
+  border-left: 1px solid rgba(243, 139, 168, 0.45);
+  border-right: 1px solid rgba(243, 139, 168, 0.45);
+  bottom: 0;
+  position: absolute;
+  top: 0;
 }
 
 .tl2-empty {
