@@ -418,17 +418,17 @@ a.uri-segment:hover {
   align-items: center;
   background: var(--surface);
   border-radius: 3px;
+  border: 1px solid var(--border);
   bottom: 4px;
   box-sizing: border-box;
   color: var(--subtext);
   display: flex;
   font-family: 'Menlo', 'Monaco', 'Consolas', monospace;
   font-size: 12px;
-  justify-content: center;
+  justify-content: flex-start;
   overflow: hidden;
-  padding: 0 6px;
+  padding: 0 8px;
   position: absolute;
-  text-overflow: ellipsis;
   top: 4px;
   white-space: nowrap;
 }

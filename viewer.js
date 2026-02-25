@@ -491,6 +491,25 @@ function buildTimelineHtml(rows, zoomFactor = 1) {
   }
   html += `</div></div>`;
 
+  // ── Discontinuity index row ──
+  if (numRuns > 1) {
+    html += `<div class="tl2-row tl2-row--disc-index">`;
+    html += `<div class="tl2-row-label"><span class="tl2-row-name">Disc #</span></div>`;
+    html += `<div class="tl2-row-track" style="width:${trackW}px">`;
+    for (let ri = 0; ri < numRuns; ri++) {
+      const x = toX(ri, 0);
+      const w = toX(ri, maxRunDurs[ri]) - x - 1;
+      if (w >= 1) {
+        html += `<div class="tl2-disc-idx" style="left:${x}px;width:${w}px">#${ri}</div>`;
+      }
+      if (ri < numRuns - 1) {
+        const sepX = toX(ri, maxRunDurs[ri]);
+        html += `<div class="tl2-disc-line" style="left:${sepX - 1}px"></div>`;
+      }
+    }
+    html += `</div></div>`;
+  }
+
   // ── Rows ──
   for (let rowIdx = 0; rowIdx < validRows.length; rowIdx++) {
     const row  = validRows[rowIdx];
@@ -546,25 +565,6 @@ function buildTimelineHtml(rows, zoomFactor = 1) {
           html += `<div class="tl2-disc-sep" style="left:${rowEndX}px;width:${sepX - rowEndX}px"></div>`;
         }
         // Always overlay the thin disc-line at the shared boundary pixel.
-        html += `<div class="tl2-disc-line" style="left:${sepX - 1}px"></div>`;
-      }
-    }
-    html += `</div></div>`;
-  }
-
-  // ── Discontinuity index row ──
-  if (numRuns > 1) {
-    html += `<div class="tl2-row tl2-row--disc-index">`;
-    html += `<div class="tl2-row-label"><span class="tl2-row-name">Disc #</span></div>`;
-    html += `<div class="tl2-row-track" style="width:${trackW}px">`;
-    for (let ri = 0; ri < numRuns; ri++) {
-      const x = toX(ri, 0);
-      const w = toX(ri, maxRunDurs[ri]) - x - 1;
-      if (w >= 1) {
-        html += `<div class="tl2-disc-idx" style="left:${x}px;width:${w}px">#${ri}</div>`;
-      }
-      if (ri < numRuns - 1) {
-        const sepX = toX(ri, maxRunDurs[ri]);
         html += `<div class="tl2-disc-line" style="left:${sepX - 1}px"></div>`;
       }
     }
