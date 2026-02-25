@@ -1,0 +1,9 @@
+# macOS
+.DS_Store
+
+# Editor / IDE
+.idea/
+.vscode/
+
+# Claude Code session data
+.claude/

@@ -437,26 +437,26 @@ a.uri-segment:hover {
   white-space: nowrap;
 }
 
-/* Thin discontinuity marker — used when all rows align at the boundary */
+/* Thin discontinuity marker — overlay at the seam, takes no layout space */
 .tl2-disc-line {
-  background: rgba(243, 139, 168, 0.6);
+  background: rgba(243, 139, 168, 0.75);
   bottom: 0;
+  pointer-events: none;
   position: absolute;
   top: 0;
   width: 2px;
+  z-index: 5;
 }
 
-/* Discontinuity gap band (appears in ruler and row tracks) */
+/* Discontinuity gap band — fills the empty region where a row is shorter than the max run */
 .tl2-disc-sep {
   background: repeating-linear-gradient(
     -45deg,
-    rgba(243, 139, 168, 0.10),
-    rgba(243, 139, 168, 0.10) 3px,
+    rgba(243, 139, 168, 0.12),
+    rgba(243, 139, 168, 0.12) 3px,
     transparent 3px,
     transparent 6px
   );
-  border-left: 1px solid rgba(243, 139, 168, 0.45);
-  border-right: 1px solid rgba(243, 139, 168, 0.45);
   bottom: 0;
   position: absolute;
   top: 0;

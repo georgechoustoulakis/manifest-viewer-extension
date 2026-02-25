@@ -389,7 +389,7 @@ function parseHls(content, baseUrl) {
 
 // ─── Timeline helpers ─────────────────────────────────────────────────────────
 
-const DISC_GAP_PX = 20; // pixel gap between discontinuity runs
+const DISC_LINE_PX = 2; // width of the disc boundary overlay line
 
 function splitIntoRuns(segs) {
   const runs = [];
@@ -458,24 +458,18 @@ function buildTimelineHtml(rows, zoomFactor = 1) {
   const avgDur    = totalDuration / (totalSegs / validRows.length);
   const pxPerSec  = Math.max(120 / avgDur, 6) * zoomFactor;
 
-  // Whether every row fills the full max duration for a given run — uses pixel
-  // tolerance so tiny floating-point differences (<1px) don't trigger the band.
-  const runIsAligned = Array.from({ length: numRuns }, (_, ri) =>
-    rowRuns.every(runs => ri >= runs.length ||
-      Math.abs(runDuration(runs[ri]) - maxRunDurs[ri]) * pxPerSec < 1)
-  );
-
   // Global run offsets in seconds
   const runOffsSec = [];
   let tOff = 0;
   for (const dur of maxRunDurs) { runOffsSec.push(tOff); tOff += dur; }
 
-  const trackW   = Math.ceil(totalDuration * pxPerSec) + (numRuns - 1) * DISC_GAP_PX;
+  // No gap zones — segments sit at exact time positions.
+  // toX maps global time (runOffset + run-relative time) straight to pixels.
+  const trackW   = Math.ceil(totalDuration * pxPerSec);
   const interval = tickInterval(totalDuration, pxPerSec);
 
-  // Convert run-relative time → pixel x
   const toX = (ri, tRel) =>
-    Math.round(runOffsSec[ri] * pxPerSec + ri * DISC_GAP_PX + tRel * pxPerSec);
+    Math.round((runOffsSec[ri] + tRel) * pxPerSec);
 
   let html = '';
 
@@ -484,8 +478,7 @@ function buildTimelineHtml(rows, zoomFactor = 1) {
   html += `<div class="tl2-corner"></div>`;
   html += `<div class="tl2-ruler-inner" style="width:${trackW}px">`;
   for (let ri = 0; ri < numRuns; ri++) {
-    // Stop half an interval before run end so the last tick doesn't crowd
-    // the first tick of the next run (both would label the same time value).
+    // Stop half an interval before run end to avoid crowding the next run's t=0 tick.
     const tickStop = maxRunDurs[ri] - interval * 0.5;
     for (let t = 0; t <= tickStop; t += interval) {
       const x = toX(ri, t);
@@ -493,11 +486,7 @@ function buildTimelineHtml(rows, zoomFactor = 1) {
     }
     if (ri < numRuns - 1) {
       const sepX = toX(ri, maxRunDurs[ri]);
-      if (runIsAligned[ri]) {
-        html += `<div class="tl2-disc-line" style="left:${sepX + Math.floor(DISC_GAP_PX / 2)}px"></div>`;
-      } else {
-        html += `<div class="tl2-disc-sep" style="left:${sepX}px;width:${DISC_GAP_PX}px"></div>`;
-      }
+      html += `<div class="tl2-disc-line" style="left:${sepX - 1}px"></div>`;
     }
   }
   html += `</div></div>`;
@@ -548,20 +537,17 @@ function buildTimelineHtml(rows, zoomFactor = 1) {
         alt = !alt;
       }
 
-      // Disc separator: thin line when this row ends exactly at the shared boundary;
-      // hatched band (extending from row end through the gap zone) when it's shorter.
+      // Disc boundary between this run and the next.
       if (ri < numRuns - 1) {
         const sepX    = toX(ri, maxRunDurs[ri]);
         const rowEndX = toX(ri, runDuration(run));
-        if (rowEndX >= sepX - 1) {
-          // Row fills the run — just a thin line in the middle of the gap zone
-          html += `<div class="tl2-disc-line" style="left:${sepX + Math.floor(DISC_GAP_PX / 2)}px"></div>`;
-        } else {
-          // Row is shorter — extend the band from where this row's segments end
-          // all the way through the gap zone so the whole empty region is marked
-          const bandW = sepX + DISC_GAP_PX - rowEndX;
-          html += `<div class="tl2-disc-sep" style="left:${rowEndX}px;width:${bandW}px"></div>`;
+        // If this row is shorter than the max run duration, fill the empty
+        // region with a hatched band so it's visually distinct from content.
+        if (rowEndX < sepX - 1) {
+          html += `<div class="tl2-disc-sep" style="left:${rowEndX}px;width:${sepX - rowEndX}px"></div>`;
         }
+        // Always overlay the thin disc-line at the shared boundary pixel.
+        html += `<div class="tl2-disc-line" style="left:${sepX - 1}px"></div>`;
       }
     }
     html += `</div></div>`;
