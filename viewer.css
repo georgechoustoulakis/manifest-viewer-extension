@@ -409,6 +409,30 @@ a.uri-segment:hover {
 
 .tl2-row--audio .tl2-seg { bottom: 10px; top: 10px; }
 
+.tl2-row--disc-index {
+  border-bottom: none;
+  min-height: 30px;
+}
+
+.tl2-disc-idx {
+  align-items: center;
+  background: var(--surface);
+  border-radius: 3px;
+  bottom: 4px;
+  box-sizing: border-box;
+  color: var(--subtext);
+  display: flex;
+  font-family: 'Menlo', 'Monaco', 'Consolas', monospace;
+  font-size: 12px;
+  justify-content: center;
+  overflow: hidden;
+  padding: 0 6px;
+  position: absolute;
+  text-overflow: ellipsis;
+  top: 4px;
+  white-space: nowrap;
+}
+
 .tl2-seg-seq {
   color: #fff;
   font-family: 'Menlo', 'Monaco', 'Consolas', monospace;
