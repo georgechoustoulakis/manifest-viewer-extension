@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <!-- Background -->
+  <rect width="128" height="128" rx="22" fill="#1e1e2e"/>
+
+  <!-- Three manifest lines (left-aligned, like a playlist) -->
+  <rect x="22" y="30" width="50" height="8" rx="4" fill="#cba6f7"/>
+  <rect x="22" y="48" width="38" height="8" rx="4" fill="#89b4fa"/>
+  <rect x="22" y="66" width="44" height="8" rx="4" fill="#89b4fa"/>
+
+  <!-- Play triangle (right side) -->
+  <polygon points="82,44 108,64 82,84" fill="#a6e3a1"/>
+</svg>
