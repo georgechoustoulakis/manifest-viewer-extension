@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "HLS Manifest Viewer",
   "version": "1.0.0",
-  "description": "View and navigate HLS .m3u8 manifests with syntax highlighting. Built for video engineers.",
+  "description": "Intercept and inspect HLS (.m3u8) and DASH (.mpd) manifests with syntax highlighting and timeline view.",
   "background": {
     "service_worker": "background.js"
   },
