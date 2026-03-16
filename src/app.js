@@ -210,10 +210,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   setupDragScroll($('view-timeline'));
 
-  // Scroll wheel zooms the horizontal axis only (drag to pan)
+  // Pinch (ctrlKey) zooms the horizontal axis; plain scroll pans naturally
   const tlEl = $('view-timeline');
   tlEl.addEventListener('wheel', e => {
-    if (!cachedTimelineRows) return;
+    if (!cachedTimelineRows || !e.ctrlKey) return;
     e.preventDefault();
 
     // Width of the sticky label column — must match .tl2-corner CSS width
