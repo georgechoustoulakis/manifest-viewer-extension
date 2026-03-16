@@ -18,7 +18,7 @@ All data (recent URLs) is stored locally on your device using Chrome's built-in 
 
 ## Network requests
 
-The extension makes network requests only to URLs you explicitly navigate to, in order to fetch and display the manifest content. No data is sent to any third-party server.
+The extension makes network requests only to URLs you explicitly navigate to, in order to fetch and display the manifest content. Requests include your browser cookies for the relevant domain so that authenticated streams (e.g. behind a login) load correctly. No data is sent to any third-party server.
 
 ## Permissions
 

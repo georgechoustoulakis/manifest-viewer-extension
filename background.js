@@ -43,6 +43,7 @@ chrome.runtime.onStartup.addListener(setupInterceptRules);
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'fetchManifest') {
     fetch(message.url, {
+      credentials: 'include',
       headers: {
         'Accept': 'application/x-mpegURL, application/vnd.apple.mpegurl, text/plain, */*'
       }
