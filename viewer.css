@@ -353,7 +353,7 @@ a.uri-segment:hover {
   padding: 8px 12px;
   position: sticky;
   width: 188px;
-  z-index: 2;
+  z-index: 6;
 }
 
 .tl2-row-name {
