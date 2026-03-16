@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "HLS Manifest Viewer",
+  "name": "HLS/DASH Manifest Viewer",
   "version": "1.0.0",
   "description": "Intercept and inspect HLS (.m3u8) and DASH (.mpd) manifests with syntax highlighting and timeline view.",
   "background": {
@@ -8,7 +8,7 @@
   },
   "action": {
     "default_popup": "popup.html",
-    "default_title": "HLS Manifest Viewer"
+    "default_title": "HLS/DASH Manifest Viewer"
   },
   "permissions": [
     "storage",
