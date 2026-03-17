@@ -38,27 +38,6 @@ setupInterceptRules().catch(console.error);
 chrome.runtime.onInstalled.addListener(setupInterceptRules);
 chrome.runtime.onStartup.addListener(setupInterceptRules);
 
-// ─── Firefox fallback: cancel navigation then load viewer ─────────────────────
-// Firefox MV3 blocks declarativeNetRequest redirects to moz-extension:// URLs.
-// Instead: cancel the navigation via blocking webRequest, then use tabs.update
-// from the background context (which Firefox does allow). Chrome MV3 throws on
-// blocking listener registration, so the try/catch leaves Chrome on DNR.
-
-const MANIFEST_RE = /^(https?:\/\/.+\.(?:m3u8?|mpd)(\?[^#]*)?)$/i;
-
-if (navigator.userAgent.includes('Firefox')) {
-  chrome.webRequest.onBeforeRequest.addListener(
-    (details) => {
-      if (!MANIFEST_RE.test(details.url)) return {};
-      const viewerUrl = chrome.runtime.getURL('viewer.html') + '#' + details.url;
-      chrome.tabs.update(details.tabId, { url: viewerUrl });
-      return { cancel: true };
-    },
-    { urls: ['*://*/*'], types: ['main_frame'] },
-    ['blocking']
-  );
-}
-
 // ─── Manifest fetch proxy ─────────────────────────────────────────────────────
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {

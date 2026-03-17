@@ -117,7 +117,7 @@ function buildTimelineHtml(rows, zoomFactor = 1) {
 
   // ── Ruler ──
   html += `<div class="tl2-ruler">`;
-  html += `<div class="tl2-corner"></div>`;
+  html += `<div class="tl2-corner"><span class="tl2-zoom-hint">Ctrl+scroll to zoom</span></div>`;
   html += `<div class="tl2-ruler-inner" style="width:${trackW}px">`;
   for (let ri = 0; ri < numRuns; ri++) {
     // Stop half an interval before run end to avoid crowding the next run's t=0 tick.

@@ -307,13 +307,23 @@ a.uri-segment:hover {
 
 /* Corner cell: sticky on both axes (top via ruler, left via itself) */
 .tl2-corner {
+  align-items: flex-end;
   background: var(--bg);
   border-right: 1px solid var(--border);
+  display: flex;
   flex-shrink: 0;
   left: 0;
+  padding: 0 8px 5px;
   position: sticky;
   width: 188px;
   z-index: 4;
+}
+
+.tl2-zoom-hint {
+  color: var(--muted);
+  font-size: 10px;
+  opacity: 0.85;
+  white-space: nowrap;
 }
 
 .tl2-ruler-inner {
