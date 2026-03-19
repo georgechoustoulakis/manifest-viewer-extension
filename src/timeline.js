@@ -550,7 +550,7 @@ function buildSegmentListHtml(rows, isDash, baseUrl) {
 
         if (ri === 0) {
           html += `<tr class="sl-run-row"><td colspan="5">` +
-            `<span class="sl-run-label">run #0</span>${infoHtml}` +
+            `<span class="sl-run-label">DISCONTINUITY #0</span>${infoHtml}` +
             `</td></tr>`;
         } else {
           html += `<tr class="sl-disc-row"><td colspan="5">` +
