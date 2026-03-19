@@ -29,6 +29,7 @@
       <div class="nav-divider"></div>
       <button id="tab-source" class="nav-btn tab-btn tab-btn--active">Source</button>
       <button id="tab-timeline" class="nav-btn tab-btn">Timeline</button>
+      <button id="tab-segments" class="nav-btn tab-btn">Segments</button>
     </nav>
 
     <div id="breadcrumbs" class="breadcrumbs" hidden></div>
@@ -43,12 +44,14 @@
         <pre id="manifest-content" class="manifest-content"></pre>
       </div>
       <div id="view-timeline" hidden></div>
+      <div id="view-segments" hidden></div>
     </main>
 
   </div>
   <div id="tl-seg-tip" class="tl-seg-tip" hidden></div>
   <script src="src/utils.js"></script>
   <script src="src/hls-parser.js"></script>
+  <script src="src/dash-parser.js"></script>
   <script src="src/hls-highlight.js"></script>
   <script src="src/dash-highlight.js"></script>
   <script src="src/timeline.js"></script>

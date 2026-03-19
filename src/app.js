@@ -14,6 +14,7 @@ let cachedTimelineRows = null;
 let timelineZoom       = 1.0;
 let currentView        = 'source';
 let timelineRendered   = false;
+let segmentsRendered   = false;
 
 // ─── Link builder (needs currentUrl / currentChain) ───────────────────────────
 
@@ -53,6 +54,7 @@ async function loadManifest(url) {
   currentRawContent  = '';
   currentParsed      = null;
   timelineRendered   = false;
+  segmentsRendered   = false;
   cachedTimelineRows = null;
   timelineZoom       = 1.0;
 
@@ -74,6 +76,8 @@ async function loadManifest(url) {
 
     if (format === 'hls') {
       currentParsed = parseHls(content, url);
+    } else if (format === 'dash') {
+      currentParsed = parseDashMpd(content, url);
     }
 
     $('manifest-content').innerHTML = format === 'dash'
@@ -115,14 +119,20 @@ function renderBreadcrumbs(chain, url) {
 
 function switchView(view, pushHistory = true) {
   currentView = view;
-  $('tab-source').classList.toggle('tab-btn--active', view === 'source');
+  $('tab-source').classList.toggle('tab-btn--active',   view === 'source');
   $('tab-timeline').classList.toggle('tab-btn--active', view === 'timeline');
+  $('tab-segments').classList.toggle('tab-btn--active', view === 'segments');
   $('view-source').hidden   = view !== 'source';
   $('view-timeline').hidden = view !== 'timeline';
+  $('view-segments').hidden = view !== 'segments';
 
   if (view === 'timeline' && !timelineRendered) {
     renderTimeline();
     timelineRendered = true;
+  }
+  if (view === 'segments' && !segmentsRendered) {
+    renderSegments();
+    segmentsRendered = true;
   }
 
   if (pushHistory) {
@@ -193,7 +203,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   window.addEventListener('popstate', e => {
     const view = e.state?.view;
-    if (view === 'timeline' || view === 'source') {
+    if (view === 'timeline' || view === 'source' || view === 'segments') {
       switchView(view, false);
       // Re-disable back btn only when restored to the original source entry with no parent chain
       $('back-btn').disabled = e.state?.initial === true && currentChain.length === 0;
@@ -207,11 +217,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   $('tab-source').addEventListener('click',   () => switchView('source'));
   $('tab-timeline').addEventListener('click', () => switchView('timeline'));
+  $('tab-segments').addEventListener('click', () => switchView('segments'));
 
   setupDragScroll($('view-timeline'));
 
   // Pinch (ctrlKey) or mouse wheel (deltaMode !== 0) zooms; trackpad pan passes through
   const tlEl = $('view-timeline');
+
   tlEl.addEventListener('wheel', e => {
     const isMouseWheel = e.deltaMode !== 0;
     if (!cachedTimelineRows || (!e.ctrlKey && !isMouseWheel)) return;
@@ -227,7 +239,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const factor = e.deltaY < 0 ? 1.2 : 1 / 1.2;
     timelineZoom = Math.max(0.05, Math.min(100, timelineZoom * factor));
 
-    tlEl.innerHTML = buildTimelineHtml(cachedTimelineRows, timelineZoom);
+    tlEl.innerHTML = currentParsed?.isDash
+      ? buildDashTimelineHtml(cachedTimelineRows, timelineZoom)
+      : buildTimelineHtml(cachedTimelineRows, timelineZoom);
 
     // Scroll so the point under the cursor stays fixed
     tlEl.scrollLeft = Math.max(0, mouseTrackX * factor - (e.clientX - rect.left - LABEL_W));
