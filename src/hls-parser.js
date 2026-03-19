@@ -23,6 +23,7 @@ function parseHls(content, baseUrl) {
     hasEndList:     false,
     segments:       [],
     streams:        [],
+    iframes:        [],
     media:          [],
   };
 
@@ -65,6 +66,19 @@ function parseHls(content, baseUrl) {
           frameRate:        a['FRAME-RATE'] || '',
           uri:              resolveUrl(lines[i], baseUrl),
           rawUri:           lines[i],
+        });
+      }
+    } else if (line.startsWith('#EXT-X-I-FRAME-STREAM-INF:')) {
+      result.isMaster = true;
+      const a = parseHlsAttrs(line.slice(26));
+      if (a.URI) {
+        result.iframes.push({
+          bandwidth:        parseInt(a.BANDWIDTH)            || 0,
+          averageBandwidth: parseInt(a['AVERAGE-BANDWIDTH']) || 0,
+          resolution:       a.RESOLUTION || '',
+          codecs:           a.CODECS     || '',
+          uri:              resolveUrl(a.URI, baseUrl),
+          rawUri:           a.URI,
         });
       }
     } else if (line.startsWith('#EXT-X-MEDIA:')) {

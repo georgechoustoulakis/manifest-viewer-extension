@@ -490,33 +490,53 @@ function buildSegmentListHtml(rows, isDash, baseUrl) {
     html += '</tr></thead><tbody>';
 
     if (!isDash) {
-      // HLS: split by discontinuity runs; times are relative within each run
-      let discRunIdx = 0;
-      let tRel = 0;
-      for (const seg of row.segs) {
-        if (seg.discontinuity) {
-          html += `<tr class="sl-disc-row"><td colspan="5">` +
-            `<span class="sl-disc-label">discontinuity · run #${++discRunIdx}</span>` +
-            `</td></tr>`;
-          tRel = 0;
-        }
-        const start = tRel;
-        tRel += seg.duration;
-        const end = tRel;
-        const uri = seg.uri || '';
-        const fname = uri ? uri.split('/').pop().split('?')[0] || uri : '';
+      // HLS: pre-split into discontinuity runs, render a header for every run
+      const runs = splitIntoRuns(row.segs);
+      for (let ri = 0; ri < runs.length; ri++) {
+        const run = runs[ri];
+        const runDur = runDuration(run);
+        const firstSeg = run[0];
 
-        html += '<tr class="sl-seg-row">';
-        html += `<td class="sl-seq">#${escapeHtml(String(seg.seq))}</td>`;
-        html += `<td class="sl-time">${start.toFixed(3)}s</td>`;
-        html += `<td class="sl-time">${end.toFixed(3)}s</td>`;
-        html += `<td class="sl-dur">${seg.duration.toFixed(3)}s</td>`;
-        if (uri) {
-          html += `<td class="sl-uri"><a href="${escapeHtml(uri)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(uri)}">${escapeHtml(fname)}</a></td>`;
+        // Build run info chips
+        const infoParts = [
+          `${run.length} seg${run.length !== 1 ? 's' : ''}`,
+          `${runDur.toFixed(3)}s`,
+        ];
+        const encMethod = firstSeg.key?.method;
+        if (encMethod) infoParts.push(encMethod);
+        if (firstSeg.programDateTime) infoParts.push(firstSeg.programDateTime);
+        const infoHtml = `<span class="sl-run-info">${infoParts.map(escapeHtml).join('<span class="sl-run-sep">·</span>')}</span>`;
+
+        if (ri === 0) {
+          html += `<tr class="sl-run-row"><td colspan="5">` +
+            `<span class="sl-run-label">run #0</span>${infoHtml}` +
+            `</td></tr>`;
         } else {
-          html += `<td class="sl-uri sl-uri--none">—</td>`;
+          html += `<tr class="sl-disc-row"><td colspan="5">` +
+            `<span class="sl-disc-label">discontinuity · run #${ri}</span>${infoHtml}` +
+            `</td></tr>`;
         }
-        html += '</tr>';
+
+        let tRel = 0;
+        for (const seg of run) {
+          const start = tRel;
+          tRel += seg.duration;
+          const end = tRel;
+          const uri = seg.uri || '';
+          const fname = uri ? uri.split('/').pop().split('?')[0] || uri : '';
+
+          html += '<tr class="sl-seg-row">';
+          html += `<td class="sl-seq">#${escapeHtml(String(seg.seq))}</td>`;
+          html += `<td class="sl-time">${start.toFixed(3)}s</td>`;
+          html += `<td class="sl-time">${end.toFixed(3)}s</td>`;
+          html += `<td class="sl-dur">${seg.duration.toFixed(3)}s</td>`;
+          if (uri) {
+            html += `<td class="sl-uri"><a href="${escapeHtml(uri)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(uri)}">${escapeHtml(fname)}</a></td>`;
+          } else {
+            html += `<td class="sl-uri sl-uri--none">—</td>`;
+          }
+          html += '</tr>';
+        }
       }
     } else {
       // DASH: absolute times; insert period separators at significant time gaps

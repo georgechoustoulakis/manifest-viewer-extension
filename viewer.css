@@ -706,8 +706,33 @@ a.uri-segment:hover {
 .sl-uri--none { color: var(--muted); }
 
 .sl-disc-row td,
-.sl-period-row td {
+.sl-period-row td,
+.sl-run-row td {
   padding: 5px 12px;
+}
+
+.sl-run-label {
+  background: rgba(166, 173, 200, 0.1);
+  border: 1px solid rgba(166, 173, 200, 0.2);
+  border-radius: 4px;
+  color: var(--subtext);
+  display: inline-block;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  padding: 2px 10px;
+  text-transform: uppercase;
+}
+
+.sl-run-info {
+  color: var(--muted);
+  font-family: 'Menlo', 'Monaco', 'Consolas', monospace;
+  font-size: 12px;
+  margin-left: 10px;
+}
+
+.sl-run-sep {
+  margin: 0 6px;
+  opacity: 0.5;
 }
 
 .sl-disc-label {
