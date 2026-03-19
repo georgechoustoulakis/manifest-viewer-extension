@@ -240,7 +240,7 @@ document.addEventListener('DOMContentLoaded', () => {
     timelineZoom = Math.max(0.05, Math.min(100, timelineZoom * factor));
 
     tlEl.innerHTML = currentParsed?.isDash
-      ? buildDashTimelineHtml(cachedTimelineRows, timelineZoom)
+      ? buildDashTimelineHtml(cachedTimelineRows, timelineZoom, currentParsed.periods)
       : buildTimelineHtml(cachedTimelineRows, timelineZoom);
 
     // Scroll so the point under the cursor stays fixed

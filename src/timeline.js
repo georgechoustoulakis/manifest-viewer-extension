@@ -377,7 +377,7 @@ function buildDashRows(parsed) {
   return [...video, ...audio, ...text];
 }
 
-function buildDashTimelineHtml(rows, zoomFactor = 1) {
+function buildDashTimelineHtml(rows, zoomFactor = 1, periods = []) {
   const validRows = rows.filter(r => r.segs.length > 0);
   if (!validRows.length) return `<div class="tl2-empty">No segment data available.</div>`;
 
@@ -385,7 +385,7 @@ function buildDashTimelineHtml(rows, zoomFactor = 1) {
   let minT = Infinity, maxT = -Infinity;
   for (const row of validRows) {
     for (const seg of row.segs) {
-      if (seg.start            < minT) minT = seg.start;
+      if (seg.start                < minT) minT = seg.start;
       if (seg.start + seg.duration > maxT) maxT = seg.start + seg.duration;
     }
   }
@@ -399,6 +399,12 @@ function buildDashTimelineHtml(rows, zoomFactor = 1) {
   const interval  = tickInterval(totalDuration, pxPerSec);
   const toX       = t => Math.round((t - minT) * pxPerSec);
 
+  // Period boundary X positions (all period starts except the very first if at minT)
+  const periodLines = periods
+    .map(p => p.start)
+    .filter(t => t > minT && t < maxT)
+    .map(t => toX(t));
+
   let html = '';
 
   // ── Ruler ──
@@ -408,7 +414,34 @@ function buildDashTimelineHtml(rows, zoomFactor = 1) {
   for (let t = minT; t < maxT - interval * 0.5; t += interval) {
     html += `<div class="tl2-tick" style="left:${toX(t)}px">${escapeHtml(formatTick(Math.round(t)))}</div>`;
   }
+  for (const x of periodLines) {
+    html += `<div class="tl2-period-line" style="left:${x - 1}px"></div>`;
+  }
   html += `</div></div>`;
+
+  // ── Period index row ──
+  if (periods.length > 1) {
+    html += `<div class="tl2-row tl2-row--period-index">`;
+    html += `<div class="tl2-row-label"><span class="tl2-row-name">Period</span></div>`;
+    html += `<div class="tl2-row-track" style="width:${trackW}px">`;
+    for (let pi = 0; pi < periods.length; pi++) {
+      const pStartClamped = Math.max(periods[pi].start, minT);
+      const pEndClamped   = pi + 1 < periods.length
+        ? Math.min(periods[pi + 1].start, maxT)
+        : maxT;
+      const x = toX(pStartClamped);
+      const w = toX(pEndClamped) - x - 1;
+      if (w >= 1) {
+        const badge = periods[pi].id ? `Period ${pi} · ${periods[pi].id}` : `Period ${pi}`;
+        html += `<div class="tl2-period-idx" style="left:${x}px;width:${w}px">${escapeHtml(badge)}</div>`;
+      }
+      if (pi < periods.length - 1) {
+        const bx = toX(periods[pi + 1].start);
+        html += `<div class="tl2-period-line" style="left:${bx - 1}px"></div>`;
+      }
+    }
+    html += `</div></div>`;
+  }
 
   // ── Rows ──
   for (const row of validRows) {
@@ -446,6 +479,10 @@ function buildDashTimelineHtml(rows, zoomFactor = 1) {
       if (w >= 90) html += `<span class="tl2-seg-time">${seg.start.toFixed(1)}\u2013${segEnd.toFixed(1)}s</span>`;
       html += `</div>`;
       alt = !alt;
+    }
+    // Period boundary lines overlaid on each track
+    for (const x of periodLines) {
+      html += `<div class="tl2-period-line" style="left:${x - 1}px"></div>`;
     }
     html += `</div></div>`;
   }
@@ -770,7 +807,7 @@ async function renderTimeline() {
       }
     }
     el.innerHTML = currentParsed.isDash
-      ? buildDashTimelineHtml(cachedTimelineRows, timelineZoom)
+      ? buildDashTimelineHtml(cachedTimelineRows, timelineZoom, currentParsed.periods)
       : buildTimelineHtml(cachedTimelineRows, timelineZoom);
   } catch (err) {
     el.innerHTML = `<div class="tl2-empty">Error: ${escapeHtml(err.message)}</div>`;
