@@ -75,7 +75,7 @@ function restoreCollapseState({ tracks, periods }) {
 
 function updateGoBtn() {
   const isRefresh = currentUrl && $('url-bar').value.trim() === currentUrl;
-  $('go-btn').textContent = isRefresh ? 'Refresh' : 'Go';
+  $('go-btn').title = isRefresh ? 'Refresh' : 'Go';
 }
 
 // ─── Manifest load ────────────────────────────────────────────────────────────
