@@ -47,8 +47,44 @@ function fetchManifest(url) {
 
 // ─── Manifest load ────────────────────────────────────────────────────────────
 
+// ─── Collapse state helpers ───────────────────────────────────────────────────
+
+function captureCollapseState() {
+  const el = $('view-segments');
+  const tracks = new Set(), periods = new Set();
+  el.querySelectorAll('.sl-track').forEach((t, i) => {
+    if (t.classList.contains('sl-track--collapsed')) tracks.add(i);
+  });
+  el.querySelectorAll('.sl-period').forEach((p, i) => {
+    if (p.classList.contains('sl-period--collapsed')) periods.add(i);
+  });
+  return { tracks, periods };
+}
+
+function restoreCollapseState({ tracks, periods }) {
+  const el = $('view-segments');
+  el.querySelectorAll('.sl-track').forEach((t, i) => {
+    if (tracks.has(i)) t.classList.add('sl-track--collapsed');
+  });
+  el.querySelectorAll('.sl-period').forEach((p, i) => {
+    if (periods.has(i)) p.classList.add('sl-period--collapsed');
+  });
+}
+
+// ─── Go / Refresh button label ────────────────────────────────────────────────
+
+function updateGoBtn() {
+  const isRefresh = currentUrl && $('url-bar').value.trim() === currentUrl;
+  $('go-btn').textContent = isRefresh ? 'Refresh' : 'Go';
+}
+
+// ─── Manifest load ────────────────────────────────────────────────────────────
+
 async function loadManifest(url) {
   if (!url) return;
+
+  const isRefresh = url === currentUrl && !!currentUrl;
+  const savedCollapses = isRefresh ? captureCollapseState() : null;
 
   currentUrl         = url;
   currentRawContent  = '';
@@ -64,9 +100,10 @@ async function loadManifest(url) {
   $('manifest-content').innerHTML = '';
   $('download-btn').disabled      = true;
   document.title = new URL(url).pathname.split('/').pop() + ' — Manifest Viewer';
+  updateGoBtn();
 
-  // Always start on source view when loading a new manifest
-  if (currentView !== 'source') switchView('source');
+  // Refresh: stay on the current view. New navigation: go to source.
+  if (!isRefresh && currentView !== 'source') switchView('source');
 
   try {
     const { content, status, contentType } = await fetchManifest(url);
@@ -89,6 +126,18 @@ async function loadManifest(url) {
     $('status-text').textContent = status;
     $('status-meta').textContent =
       `${format.toUpperCase()} · ${contentType || 'text/plain'} · ${bytes.toLocaleString()} bytes · ${content.split('\n').length} lines`;
+
+    // On refresh, re-render whichever non-source view is active, then restore collapse state
+    if (isRefresh) {
+      if (currentView === 'timeline') {
+        await renderTimeline();
+        timelineRendered = true;
+      } else if (currentView === 'segments') {
+        await renderSegments();
+        segmentsRendered = true;
+      }
+      if (savedCollapses) restoreCollapseState(savedCollapses);
+    }
   } catch (err) {
     $('download-btn').disabled   = true;
     $('status-text').textContent = 'Error';
@@ -210,10 +259,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  $('url-bar').addEventListener('keydown', e => {
-    if (e.key === 'Enter') navigate($('url-bar').value.trim());
-  });
-  $('go-btn').addEventListener('click', () => navigate($('url-bar').value.trim()));
+  $('url-bar').addEventListener('input', updateGoBtn);
+
+  const goOrRefresh = () => {
+    const url = $('url-bar').value.trim();
+    if (!url) return;
+    if (url === currentUrl && currentUrl) loadManifest(url);
+    else navigate(url);
+  };
+  $('url-bar').addEventListener('keydown', e => { if (e.key === 'Enter') goOrRefresh(); });
+  $('go-btn').addEventListener('click', goOrRefresh);
 
   $('tab-source').addEventListener('click',   () => switchView('source'));
   $('tab-timeline').addEventListener('click', () => switchView('timeline'));

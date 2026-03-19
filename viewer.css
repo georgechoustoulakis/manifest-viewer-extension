@@ -840,11 +840,27 @@ a.uri-segment:hover {
   align-items: baseline;
   background: rgba(166, 227, 161, 0.07);
   border-bottom: 1px solid rgba(166, 227, 161, 0.2);
+  cursor: pointer;
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
   padding: 10px 16px;
+  user-select: none;
 }
+
+.sl-period-header:hover { filter: brightness(1.15); }
+
+.sl-period-toggle {
+  color: rgba(166, 227, 161, 0.65);
+  display: inline-block;
+  flex-shrink: 0;
+  font-size: 10px;
+  transition: transform 0.15s;
+}
+
+.sl-period--collapsed .sl-period-toggle { transform: rotate(-90deg); }
+.sl-period--collapsed .sl-period-header { border-bottom: none; }
+.sl-period--collapsed .sl-as-group      { display: none; }
 
 .sl-period-badge {
   color: #a6e3a1;

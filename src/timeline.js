@@ -720,8 +720,9 @@ function buildDashSegmentListHtml(parsed, baseUrl) {
 
     html += `<div class="sl-period">`;
 
-    // Period header
+    // Period header (collapsible)
     html += `<div class="sl-period-header">`;
+    html += `<span class="sl-period-toggle" aria-hidden="true">&#9660;</span>`;
     const badgeLabel = period.id ? `Period ${pi} · ${period.id}` : `Period ${pi}`;
     html += `<span class="sl-period-badge">${escapeHtml(badgeLabel)}</span>`;
     const startFmt = formatTick(Math.round(period.start));
@@ -784,6 +785,11 @@ async function renderSegments() {
     for (const header of el.querySelectorAll('.sl-track-header')) {
       header.addEventListener('click', () => {
         header.closest('.sl-track').classList.toggle('sl-track--collapsed');
+      });
+    }
+    for (const header of el.querySelectorAll('.sl-period-header')) {
+      header.addEventListener('click', () => {
+        header.closest('.sl-period').classList.toggle('sl-period--collapsed');
       });
     }
   } catch (err) {
