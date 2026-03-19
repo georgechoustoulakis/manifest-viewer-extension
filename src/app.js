@@ -8,6 +8,7 @@ const $ = id => document.getElementById(id);
 
 let currentUrl         = '';
 let currentRawContent  = '';
+let currentContentType = '';
 let currentChain       = [];
 let currentParsed      = null;
 let cachedTimelineRows = null;
@@ -15,6 +16,7 @@ let timelineZoom       = 1.0;
 let currentView        = 'source';
 let timelineRendered   = false;
 let segmentsRendered   = false;
+let validateRendered   = false;
 
 // ─── Link builder (needs currentUrl / currentChain) ───────────────────────────
 
@@ -88,9 +90,11 @@ async function loadManifest(url) {
 
   currentUrl         = url;
   currentRawContent  = '';
+  currentContentType = '';
   currentParsed      = null;
   timelineRendered   = false;
   segmentsRendered   = false;
+  validateRendered   = false;
   cachedTimelineRows = null;
   timelineZoom       = 1.0;
 
@@ -107,7 +111,8 @@ async function loadManifest(url) {
 
   try {
     const { content, status, contentType } = await fetchManifest(url);
-    currentRawContent = content;
+    currentRawContent  = content;
+    currentContentType = contentType || '';
 
     const format = detectFormat(url, contentType);
 
@@ -135,6 +140,9 @@ async function loadManifest(url) {
       } else if (currentView === 'segments') {
         await renderSegments();
         segmentsRendered = true;
+      } else if (currentView === 'validate') {
+        await renderValidation();
+        validateRendered = true;
       }
       if (savedCollapses) restoreCollapseState(savedCollapses);
     }
@@ -171,9 +179,11 @@ function switchView(view, pushHistory = true) {
   $('tab-source').classList.toggle('tab-btn--active',   view === 'source');
   $('tab-timeline').classList.toggle('tab-btn--active', view === 'timeline');
   $('tab-segments').classList.toggle('tab-btn--active', view === 'segments');
+  $('tab-validate').classList.toggle('tab-btn--active', view === 'validate');
   $('view-source').hidden   = view !== 'source';
   $('view-timeline').hidden = view !== 'timeline';
   $('view-segments').hidden = view !== 'segments';
+  $('view-validate').hidden = view !== 'validate';
 
   if (view === 'timeline' && !timelineRendered) {
     renderTimeline();
@@ -182,6 +192,10 @@ function switchView(view, pushHistory = true) {
   if (view === 'segments' && !segmentsRendered) {
     renderSegments();
     segmentsRendered = true;
+  }
+  if (view === 'validate' && !validateRendered) {
+    renderValidation();
+    validateRendered = true;
   }
 
   if (pushHistory) {
@@ -252,7 +266,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   window.addEventListener('popstate', e => {
     const view = e.state?.view;
-    if (view === 'timeline' || view === 'source' || view === 'segments') {
+    if (view === 'timeline' || view === 'source' || view === 'segments' || view === 'validate') {
       switchView(view, false);
       // Re-disable back btn only when restored to the original source entry with no parent chain
       $('back-btn').disabled = e.state?.initial === true && currentChain.length === 0;
@@ -273,6 +287,7 @@ document.addEventListener('DOMContentLoaded', () => {
   $('tab-source').addEventListener('click',   () => switchView('source'));
   $('tab-timeline').addEventListener('click', () => switchView('timeline'));
   $('tab-segments').addEventListener('click', () => switchView('segments'));
+  $('tab-validate').addEventListener('click', () => switchView('validate'));
 
   setupDragScroll($('view-timeline'));
 
