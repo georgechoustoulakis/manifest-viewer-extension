@@ -89,6 +89,11 @@ html, body {
   padding: 3px 10px;
 }
 
+.nav-btn--go {
+  font-size: 30px;
+  padding: 3px 10px;
+}
+
 .nav-btn--download {
   font-size: 20px;
   padding: 3px 10px;
