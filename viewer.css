@@ -497,6 +497,28 @@ a.uri-segment:hover {
   min-height: 30px;
 }
 
+.tl2-avail-bar {
+  align-items: center;
+  background: rgba(137, 220, 235, 0.1);
+  border: 1px solid rgba(137, 220, 235, 0.3);
+  border-radius: 3px;
+  bottom: 4px;
+  box-sizing: border-box;
+  color: #89dceb;
+  display: flex;
+  font-family: 'Menlo', 'Monaco', 'Consolas', monospace;
+  font-size: 12px;
+  justify-content: space-between;
+  overflow: hidden;
+  padding: 0 8px;
+  position: absolute;
+  top: 4px;
+  white-space: nowrap;
+}
+
+.tl2-avail-start,
+.tl2-avail-end { flex-shrink: 0; }
+
 .tl2-period-idx {
   align-items: center;
   background: rgba(166, 227, 161, 0.07);

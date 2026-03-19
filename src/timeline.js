@@ -377,7 +377,7 @@ function buildDashRows(parsed) {
   return [...video, ...audio, ...text];
 }
 
-function buildDashTimelineHtml(rows, zoomFactor = 1, periods = []) {
+function buildDashTimelineHtml(rows, zoomFactor = 1, periods = [], parsed = null) {
   const validRows = rows.filter(r => r.segs.length > 0);
   if (!validRows.length) return `<div class="tl2-empty">No segment data available.</div>`;
 
@@ -399,7 +399,14 @@ function buildDashTimelineHtml(rows, zoomFactor = 1, periods = []) {
   const interval  = tickInterval(totalDuration, pxPerSec);
   const toX       = t => Math.round((t - minT) * pxPerSec);
 
-  // Period boundary X positions (all period starts except the very first if at minT)
+  // Live streams: segment start times are Unix timestamps (seconds since epoch).
+  // Detect by checking if availabilityStartTime is epoch and type is dynamic.
+  const isLive    = parsed?.type === 'dynamic';
+  const fmtRuler  = isLive
+    ? t => new Date(t * 1000).toISOString().slice(11, 19) + ' UTC'
+    : t => formatTick(Math.round(t - minT));  // relative for VOD
+
+  // Period boundary X positions — only between periods, not at start/end
   const periodLines = periods
     .map(p => p.start)
     .filter(t => t > minT && t < maxT)
@@ -411,16 +418,34 @@ function buildDashTimelineHtml(rows, zoomFactor = 1, periods = []) {
   html += `<div class="tl2-ruler">`;
   html += `<div class="tl2-corner"><span class="tl2-zoom-hint">Ctrl+scroll to zoom</span></div>`;
   html += `<div class="tl2-ruler-inner" style="width:${trackW}px">`;
-  for (let t = minT; t < maxT - interval * 0.5; t += interval) {
-    html += `<div class="tl2-tick" style="left:${toX(t)}px">${escapeHtml(formatTick(Math.round(t)))}</div>`;
+  // Align first tick to a clean interval boundary
+  const firstTick = Math.ceil(minT / interval) * interval;
+  for (let t = firstTick; t < maxT - interval * 0.5; t += interval) {
+    html += `<div class="tl2-tick" style="left:${toX(t)}px">${escapeHtml(fmtRuler(t))}</div>`;
   }
   for (const x of periodLines) {
     html += `<div class="tl2-period-line" style="left:${x - 1}px"></div>`;
   }
   html += `</div></div>`;
 
-  // ── Period index row ──
-  if (periods.length > 1) {
+  // ── Availability window row (live streams) ──
+  if (isLive) {
+    const winStart = new Date(minT * 1000).toISOString().slice(0, 19).replace('T', ' ') + ' UTC';
+    const winEnd   = new Date(maxT * 1000).toISOString().slice(0, 19).replace('T', ' ') + ' UTC';
+    const tsbdSec  = parsed?.timeShiftBufferDepth ? parseDashDuration(parsed.timeShiftBufferDepth) : null;
+    const label    = tsbdSec != null ? `DVR window · ${formatTick(Math.round(tsbdSec))}` : 'DVR window';
+    html += `<div class="tl2-row tl2-row--period-index">`;
+    html += `<div class="tl2-row-label"><span class="tl2-row-name">${escapeHtml(label)}</span></div>`;
+    html += `<div class="tl2-row-track" style="width:${trackW}px">`;
+    html += `<div class="tl2-avail-bar" style="left:0;width:${trackW - 1}px">`;
+    html += `<span class="tl2-avail-start">${escapeHtml(winStart)}</span>`;
+    html += `<span class="tl2-avail-end">${escapeHtml(winEnd)}</span>`;
+    html += `</div>`;
+    html += `</div></div>`;
+  }
+
+  // ── Period index row (always shown for DASH, live or VOD) ──
+  if (periods.length >= 1) {
     html += `<div class="tl2-row tl2-row--period-index">`;
     html += `<div class="tl2-row-label"><span class="tl2-row-name">Period</span></div>`;
     html += `<div class="tl2-row-track" style="width:${trackW}px">`;
@@ -432,11 +457,15 @@ function buildDashTimelineHtml(rows, zoomFactor = 1, periods = []) {
       const x = toX(pStartClamped);
       const w = toX(pEndClamped) - x - 1;
       if (w >= 1) {
-        const p      = periods[pi];
-        const pNext  = periods[pi + 1];
-        const pEndT  = pNext ? pNext.start : maxT;
-        const fmtT   = t => Number.isInteger(t) ? `${t}s` : `${t.toFixed(3)}s`;
-        const badge  = `Period ${p.id ?? pi} \u2013 ${fmtT(p.start)} \u2013 ${fmtT(pEndT)}`;
+        const p     = periods[pi];
+        const pNext = periods[pi + 1];
+        const pEndT = pNext ? pNext.start : (isLive ? null : maxT);
+        const fmtT  = isLive
+          ? t => new Date(t * 1000).toISOString().slice(0, 19).replace('T', ' ') + ' UTC'
+          : t => (Number.isInteger(t) ? `${t}s` : `${t.toFixed(3)}s`);
+        const badge = pEndT != null
+          ? `Period ${p.id ?? pi} \u2013 ${fmtT(p.start)} \u2013 ${fmtT(pEndT)}`
+          : `Period ${p.id ?? pi} \u2013 ${fmtT(p.start)} \u2013 live`;
         html += `<div class="tl2-period-idx" style="left:${x}px;width:${w}px">${escapeHtml(badge)}</div>`;
       }
       if (pi < periods.length - 1) {
@@ -862,7 +891,7 @@ async function renderTimeline() {
       }
     }
     el.innerHTML = currentParsed.isDash
-      ? buildDashTimelineHtml(cachedTimelineRows, timelineZoom, currentParsed.periods)
+      ? buildDashTimelineHtml(cachedTimelineRows, timelineZoom, currentParsed.periods, currentParsed)
       : buildTimelineHtml(cachedTimelineRows, timelineZoom);
   } catch (err) {
     el.innerHTML = `<div class="tl2-empty">Error: ${escapeHtml(err.message)}</div>`;
