@@ -430,16 +430,28 @@ function buildDashTimelineHtml(rows, zoomFactor = 1, periods = [], parsed = null
 
   // ── Availability window row (live streams) ──
   if (isLive) {
-    const winStart = new Date(minT * 1000).toISOString().slice(0, 19).replace('T', ' ') + ' UTC';
-    const winEnd   = new Date(maxT * 1000).toISOString().slice(0, 19).replace('T', ' ') + ' UTC';
-    const tsbdSec  = parsed?.timeShiftBufferDepth ? parseDashDuration(parsed.timeShiftBufferDepth) : null;
-    const label    = tsbdSec != null ? `DVR window · ${formatTick(Math.round(tsbdSec))}` : 'DVR window';
+    const tsbdSec     = parsed?.timeShiftBufferDepth ? parseDashDuration(parsed.timeShiftBufferDepth) : null;
+    const publishUnix = parsed?.publishTime ? new Date(parsed.publishTime).getTime() / 1000 : null;
+
+    // Compute actual availability window from publishTime − TSBD to publishTime,
+    // then clamp to the visible segment range [minT, maxT].
+    let availStart = minT, availEnd = maxT;
+    if (publishUnix != null && tsbdSec != null) {
+      availStart = Math.max(publishUnix - tsbdSec, minT);
+      availEnd   = Math.min(publishUnix,            maxT);
+    }
+    const barX = toX(availStart);
+    const barW = Math.max(1, toX(availEnd) - barX - 1);
+
+    const fmtUtc  = t => new Date(t * 1000).toISOString().slice(0, 19).replace('T', ' ') + ' UTC';
+    const label   = tsbdSec != null ? `DVR window · ${formatTick(Math.round(tsbdSec))}` : 'DVR window';
+
     html += `<div class="tl2-row tl2-row--period-index">`;
     html += `<div class="tl2-row-label"><span class="tl2-row-name">${escapeHtml(label)}</span></div>`;
     html += `<div class="tl2-row-track" style="width:${trackW}px">`;
-    html += `<div class="tl2-avail-bar" style="left:0;width:${trackW - 1}px">`;
-    html += `<span class="tl2-avail-start">${escapeHtml(winStart)}</span>`;
-    html += `<span class="tl2-avail-end">${escapeHtml(winEnd)}</span>`;
+    html += `<div class="tl2-avail-bar" style="left:${barX}px;width:${barW}px">`;
+    html += `<span class="tl2-avail-start">${escapeHtml(fmtUtc(availStart))}</span>`;
+    html += `<span class="tl2-avail-end">${escapeHtml(fmtUtc(availEnd))}</span>`;
     html += `</div>`;
     html += `</div></div>`;
   }
