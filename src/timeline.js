@@ -699,7 +699,12 @@ function buildSegmentListHtml(rows, isDash, baseUrl) {
 
 // ─── DASH segment list HTML builder ──────────────────────────────────────────
 
-function buildDashRepTrackHtml(as, rep, period, baseUrl) {
+function fmtUtcHms(sec) {
+  const d = new Date(sec * 1000);
+  return d.toISOString().slice(11, 23) + ' UTC'; // HH:MM:SS.mmm UTC
+}
+
+function buildDashRepTrackHtml(as, rep, period, baseUrl, isLive) {
   const bwLabel = rep.bandwidth >= 1_000_000
     ? `${(rep.bandwidth / 1_000_000).toFixed(2)} Mbps`
     : `${(rep.bandwidth / 1000).toFixed(0)} Kbps`;
@@ -729,23 +734,36 @@ function buildDashRepTrackHtml(as, rep, period, baseUrl) {
 
   html += `<table class="sl-table"><thead><tr>`;
   html += `<th class="sl-th-seq">#</th>`;
-  html += `<th class="sl-th-start">Start (in period)</th>`;
-  html += `<th class="sl-th-end">End (in period)</th>`;
+  if (isLive) {
+    html += `<th class="sl-th-start">Start (UTC)</th>`;
+    html += `<th class="sl-th-end">End (UTC)</th>`;
+  } else {
+    html += `<th class="sl-th-start">Start (in period)</th>`;
+    html += `<th class="sl-th-end">End (in period)</th>`;
+  }
   html += `<th class="sl-th-dur">Duration</th>`;
   html += `<th class="sl-th-uri">Segment</th>`;
   html += `</tr></thead><tbody>`;
 
   for (const seg of rep.segs) {
-    const relStart    = seg.start - period.start;
-    const relEnd      = relStart + seg.duration;
     const rawUri      = seg.uri || '';
     const resolvedUri = rawUri ? resolveUrl(rawUri, baseUrl) : '';
     const fname       = resolvedUri ? resolvedUri.split('/').pop().split('?')[0] || rawUri : '';
 
+    let startFmt, endFmt;
+    if (isLive) {
+      startFmt = fmtUtcHms(seg.start);
+      endFmt   = fmtUtcHms(seg.start + seg.duration);
+    } else {
+      const relStart = seg.start - period.start;
+      startFmt = relStart.toFixed(3) + 's';
+      endFmt   = (relStart + seg.duration).toFixed(3) + 's';
+    }
+
     html += `<tr class="sl-seg-row">`;
     html += `<td class="sl-seq">#${escapeHtml(String(seg.seq))}</td>`;
-    html += `<td class="sl-time">${relStart.toFixed(3)}s</td>`;
-    html += `<td class="sl-time">${relEnd.toFixed(3)}s</td>`;
+    html += `<td class="sl-time">${escapeHtml(startFmt)}</td>`;
+    html += `<td class="sl-time">${escapeHtml(endFmt)}</td>`;
     html += `<td class="sl-dur">${seg.duration.toFixed(3)}s</td>`;
     const brBadge = seg.byterange ? (() => {
       const br = parseDashByterange(seg.byterange);
@@ -765,6 +783,7 @@ function buildDashRepTrackHtml(as, rep, period, baseUrl) {
 }
 
 function buildDashSegmentListHtml(parsed, baseUrl) {
+  const isLive = parsed.type === 'dynamic';
   // ── MPD info bar ──
   const mpdFields = [
     { key: 'Type',     val: parsed.type || 'static' },
@@ -809,10 +828,27 @@ function buildDashSegmentListHtml(parsed, baseUrl) {
     // Period header (collapsible)
     html += `<div class="sl-period-header">`;
     html += `<span class="sl-period-toggle" aria-hidden="true">&#9660;</span>`;
-    const badgeLabel = period.id ? `Period ${pi} · ${period.id}` : `Period ${pi}`;
-    html += `<span class="sl-period-badge">${escapeHtml(badgeLabel)}</span>`;
-    const startFmt = formatTick(Math.round(period.start));
-    const endFmt   = pEnd != null ? formatTick(Math.round(pEnd)) : '?';
+    const pId = period.id ?? String(pi);
+    html += `<span class="sl-period-badge">${escapeHtml(`Period ${pId}`)}</span>`;
+    let startFmt, endFmt;
+    if (isLive) {
+      // Derive actual time range from segments across all reps in this period
+      let minT = Infinity, maxT = -Infinity;
+      for (const as of period.adaptationSets) {
+        for (const rep of as.reps) {
+          for (const seg of rep.segs) {
+            if (seg.start < minT) minT = seg.start;
+            const e = seg.start + seg.duration;
+            if (e > maxT) maxT = e;
+          }
+        }
+      }
+      startFmt = minT !== Infinity ? fmtUtcHms(minT) : '?';
+      endFmt   = maxT !== -Infinity ? fmtUtcHms(maxT) : '?';
+    } else {
+      startFmt = formatTick(Math.round(period.start));
+      endFmt   = pEnd != null ? formatTick(Math.round(pEnd)) : '?';
+    }
     html += `<span class="sl-period-timerange">${escapeHtml(startFmt)}\u2013${escapeHtml(endFmt)}</span>`;
     if (period.duration != null)
       html += `<span class="sl-period-dur">${period.duration.toFixed(3)}s</span>`;
@@ -831,7 +867,7 @@ function buildDashSegmentListHtml(parsed, baseUrl) {
       html += `<div class="sl-as-group-label">${escapeHtml(label)}</div>`;
       for (const as of list) {
         for (const rep of [...as.reps].sort((a, b) => b.bandwidth - a.bandwidth)) {
-          html += buildDashRepTrackHtml(as, rep, period, baseUrl);
+          html += buildDashRepTrackHtml(as, rep, period, baseUrl, isLive);
         }
       }
       html += `</div>`;
