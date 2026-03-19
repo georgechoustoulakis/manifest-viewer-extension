@@ -127,6 +127,8 @@ async function loadManifest(url) {
       : renderHls(content, url);
 
     $('download-btn').disabled = false;
+    $('tab-validate').hidden = (format !== 'hls');
+    if (format !== 'hls' && currentView === 'validate') switchView('source', false);
     const bytes = new TextEncoder().encode(content).length;
     $('status-text').textContent = status;
     $('status-meta').textContent =
