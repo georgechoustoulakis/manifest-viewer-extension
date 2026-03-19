@@ -432,7 +432,11 @@ function buildDashTimelineHtml(rows, zoomFactor = 1, periods = []) {
       const x = toX(pStartClamped);
       const w = toX(pEndClamped) - x - 1;
       if (w >= 1) {
-        const badge = periods[pi].id ? `Period ${pi} · ${periods[pi].id}` : `Period ${pi}`;
+        const p      = periods[pi];
+        const pNext  = periods[pi + 1];
+        const pEndT  = pNext ? pNext.start : maxT;
+        const fmtT   = t => Number.isInteger(t) ? `${t}s` : `${t.toFixed(3)}s`;
+        const badge  = `Period ${p.id ?? pi} \u2013 ${fmtT(p.start)} \u2013 ${fmtT(pEndT)}`;
         html += `<div class="tl2-period-idx" style="left:${x}px;width:${w}px">${escapeHtml(badge)}</div>`;
       }
       if (pi < periods.length - 1) {
