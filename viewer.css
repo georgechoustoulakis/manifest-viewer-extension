@@ -744,6 +744,13 @@ a.uri-segment:hover {
 
 .sl-uri--none { color: var(--muted); }
 
+.sl-byterange {
+  color: var(--muted);
+  font-size: 11px;
+  margin-left: 6px;
+  white-space: nowrap;
+}
+
 .sl-disc-row td,
 .sl-period-row td,
 .sl-run-row td {

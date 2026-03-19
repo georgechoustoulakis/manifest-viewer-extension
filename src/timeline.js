@@ -494,6 +494,30 @@ function buildDashTimelineHtml(rows, zoomFactor = 1, periods = []) {
   return html;
 }
 
+// ─── Byte-range helpers ───────────────────────────────────────────────────────
+
+// Parse HLS #EXT-X-BYTERANGE string ("n@offset" or "n").
+// Returns { length, offset } where offset may be null (implicit continuation).
+function parseHlsByterange(str) {
+  if (!str) return null;
+  const at = str.indexOf('@');
+  return at >= 0
+    ? { length: parseInt(str), offset: parseInt(str.slice(at + 1)) }
+    : { length: parseInt(str), offset: null };
+}
+
+// Parse DASH mediaRange attribute ("first-last").
+function parseDashByterange(str) {
+  if (!str) return null;
+  const [first, last] = str.split('-').map(Number);
+  return isNaN(first) || isNaN(last) ? null : { first, last };
+}
+
+// Render a small byte-range badge for the sl-uri cell.
+function byterangeBadge(first, last) {
+  return `<span class="sl-byterange">bytes\u00a0${first}\u2013${last}</span>`;
+}
+
 // ─── Segment list HTML builder ────────────────────────────────────────────────
 
 function buildSegmentListHtml(rows, isDash, baseUrl) {
@@ -559,12 +583,28 @@ function buildSegmentListHtml(rows, isDash, baseUrl) {
         }
 
         let tRel = 0;
+        let brNextOffset = 0; // running byte offset for implicit HLS byteranges
+        let brPrevUri    = '';
         for (const seg of run) {
           const start = tRel;
           tRel += seg.duration;
           const end = tRel;
-          const uri = seg.uri || '';
+          const uri   = seg.uri || '';
           const fname = uri ? uri.split('/').pop().split('?')[0] || uri : '';
+
+          // Resolve HLS byte range, tracking implicit offsets per resource URI
+          let brBadge = '';
+          if (seg.byterange) {
+            const br = parseHlsByterange(seg.byterange);
+            if (br) {
+              const byteFirst = br.offset !== null ? br.offset
+                              : (uri === brPrevUri ? brNextOffset : 0);
+              const byteLast  = byteFirst + br.length - 1;
+              brNextOffset    = byteLast + 1;
+              brPrevUri       = uri;
+              brBadge         = byterangeBadge(byteFirst, byteLast);
+            }
+          }
 
           html += '<tr class="sl-seg-row">';
           html += `<td class="sl-seq">#${escapeHtml(String(seg.seq))}</td>`;
@@ -572,7 +612,7 @@ function buildSegmentListHtml(rows, isDash, baseUrl) {
           html += `<td class="sl-time">${end.toFixed(3)}s</td>`;
           html += `<td class="sl-dur">${seg.duration.toFixed(3)}s</td>`;
           if (uri) {
-            html += `<td class="sl-uri"><a href="${escapeHtml(uri)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(uri)}">${escapeHtml(fname)}</a></td>`;
+            html += `<td class="sl-uri"><a href="${escapeHtml(uri)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(uri)}">${escapeHtml(fname)}</a>${brBadge}</td>`;
           } else {
             html += `<td class="sl-uri sl-uri--none">—</td>`;
           }
@@ -666,8 +706,13 @@ function buildDashRepTrackHtml(as, rep, period, baseUrl) {
     html += `<td class="sl-time">${relStart.toFixed(3)}s</td>`;
     html += `<td class="sl-time">${relEnd.toFixed(3)}s</td>`;
     html += `<td class="sl-dur">${seg.duration.toFixed(3)}s</td>`;
+    const brBadge = seg.byterange ? (() => {
+      const br = parseDashByterange(seg.byterange);
+      return br ? byterangeBadge(br.first, br.last) : '';
+    })() : '';
+
     if (resolvedUri) {
-      html += `<td class="sl-uri"><a href="${escapeHtml(resolvedUri)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(resolvedUri)}">${escapeHtml(fname)}</a></td>`;
+      html += `<td class="sl-uri"><a href="${escapeHtml(resolvedUri)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(resolvedUri)}">${escapeHtml(fname)}</a>${brBadge}</td>`;
     } else {
       html += `<td class="sl-uri sl-uri--none">—</td>`;
     }

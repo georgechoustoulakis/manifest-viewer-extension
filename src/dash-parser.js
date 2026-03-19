@@ -113,16 +113,19 @@ function resolveSegmentList(segList, periodStartSec) {
       const d = parseInt(s.getAttribute('d'));
       const r = parseInt(s.getAttribute('r') || '0');
       for (let i = 0; i <= r; i++) {
-        const uri = urls[idx]?.getAttribute('media') || '';
-        segs.push({ seq: idx, start: periodStartSec + (t - pto) / timescale, duration: d / timescale, uri });
+        const urlEl    = urls[idx];
+        const uri      = urlEl?.getAttribute('media')      || '';
+        const byterange = urlEl?.getAttribute('mediaRange') || null;
+        segs.push({ seq: idx, start: periodStartSec + (t - pto) / timescale, duration: d / timescale, uri, byterange });
         t += d;
         idx++;
       }
     }
   } else {
     for (const urlEl of urls) {
-      const uri = urlEl.getAttribute('media') || '';
-      segs.push({ seq: idx, start: periodStartSec + (idx * dur - pto) / timescale, duration: dur / timescale, uri });
+      const uri       = urlEl.getAttribute('media')      || '';
+      const byterange = urlEl.getAttribute('mediaRange') || null;
+      segs.push({ seq: idx, start: periodStartSec + (idx * dur - pto) / timescale, duration: dur / timescale, uri, byterange });
       idx++;
     }
   }
