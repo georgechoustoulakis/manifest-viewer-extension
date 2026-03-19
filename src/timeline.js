@@ -575,6 +575,147 @@ function buildSegmentListHtml(rows, isDash, baseUrl) {
   return html;
 }
 
+// ─── DASH segment list HTML builder ──────────────────────────────────────────
+
+function buildDashRepTrackHtml(as, rep, period, baseUrl) {
+  const bwLabel = rep.bandwidth >= 1_000_000
+    ? `${(rep.bandwidth / 1_000_000).toFixed(2)} Mbps`
+    : `${(rep.bandwidth / 1000).toFixed(0)} Kbps`;
+
+  const nameParts = [];
+  if (as.isVideo) {
+    if (rep.width && rep.height) nameParts.push(`${rep.width}×${rep.height}`);
+    nameParts.push(bwLabel);
+    const codec = simplifyVideoCodec(rep.codecs);
+    if (codec) nameParts.push(codec);
+    if (rep.frameRate) nameParts.push(`${parseFloat(rep.frameRate).toFixed(0)}fps`);
+  } else {
+    const trackName = as.label || as.lang || (as.isAudio ? 'Audio' : 'Subtitle');
+    nameParts.push(trackName);
+    if (as.lang && as.label && as.lang !== as.label) nameParts.push(as.lang);
+    nameParts.push(bwLabel);
+  }
+  const label  = nameParts.join(' · ');
+  const repDur = rep.segs.reduce((s, seg) => s + seg.duration, 0);
+
+  let html = `<div class="sl-track">`;
+  html += `<div class="sl-track-header">`;
+  html += `<span class="sl-track-toggle" aria-hidden="true">&#9660;</span>`;
+  html += `<span class="sl-track-name">${escapeHtml(label)}</span>`;
+  html += `<span class="sl-track-count">${rep.segs.length} seg${rep.segs.length !== 1 ? 's' : ''} · ${repDur.toFixed(3)}s total</span>`;
+  html += `</div>`;
+
+  html += `<table class="sl-table"><thead><tr>`;
+  html += `<th class="sl-th-seq">#</th>`;
+  html += `<th class="sl-th-start">Start (in period)</th>`;
+  html += `<th class="sl-th-end">End (in period)</th>`;
+  html += `<th class="sl-th-dur">Duration</th>`;
+  html += `<th class="sl-th-uri">Segment</th>`;
+  html += `</tr></thead><tbody>`;
+
+  for (const seg of rep.segs) {
+    const relStart    = seg.start - period.start;
+    const relEnd      = relStart + seg.duration;
+    const rawUri      = seg.uri || '';
+    const resolvedUri = rawUri ? resolveUrl(rawUri, baseUrl) : '';
+    const fname       = resolvedUri ? resolvedUri.split('/').pop().split('?')[0] || rawUri : '';
+
+    html += `<tr class="sl-seg-row">`;
+    html += `<td class="sl-seq">#${escapeHtml(String(seg.seq))}</td>`;
+    html += `<td class="sl-time">${relStart.toFixed(3)}s</td>`;
+    html += `<td class="sl-time">${relEnd.toFixed(3)}s</td>`;
+    html += `<td class="sl-dur">${seg.duration.toFixed(3)}s</td>`;
+    if (resolvedUri) {
+      html += `<td class="sl-uri"><a href="${escapeHtml(resolvedUri)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(resolvedUri)}">${escapeHtml(fname)}</a></td>`;
+    } else {
+      html += `<td class="sl-uri sl-uri--none">—</td>`;
+    }
+    html += `</tr>`;
+  }
+
+  html += `</tbody></table></div>`;
+  return html;
+}
+
+function buildDashSegmentListHtml(parsed, baseUrl) {
+  // ── MPD info bar ──
+  const mpdFields = [
+    { key: 'Type',     val: parsed.type || 'static' },
+  ];
+  if (parsed.duration != null)
+    mpdFields.push({ key: 'Duration', val: `${formatTick(Math.round(parsed.duration))} (${parsed.duration.toFixed(3)}s)` });
+  if (parsed.availabilityStartTime)
+    mpdFields.push({ key: 'Avail. start',    val: parsed.availabilityStartTime });
+  if (parsed.availabilityEndTime)
+    mpdFields.push({ key: 'Avail. end',      val: parsed.availabilityEndTime });
+  if (parsed.publishTime)
+    mpdFields.push({ key: 'Published',       val: parsed.publishTime });
+  if (parsed.minimumUpdatePeriod)
+    mpdFields.push({ key: 'Update period',   val: parsed.minimumUpdatePeriod });
+  if (parsed.timeShiftBufferDepth)
+    mpdFields.push({ key: 'Buffer depth',    val: parsed.timeShiftBufferDepth });
+  if (parsed.suggestedPresentationDelay)
+    mpdFields.push({ key: 'Pres. delay',     val: parsed.suggestedPresentationDelay });
+  mpdFields.push({ key: 'Periods', val: String(parsed.periods.length) });
+
+  let html = `<div class="sl-view sl-view--dash">`;
+
+  html += `<div class="sl-mpd-info">`;
+  for (const { key, val } of mpdFields) {
+    html += `<div class="sl-mpd-field">` +
+      `<span class="sl-mpd-key">${escapeHtml(key)}</span>` +
+      `<span class="sl-mpd-val">${escapeHtml(val)}</span>` +
+      `</div>`;
+  }
+  html += `</div>`;
+
+  // ── Periods ──
+  for (let pi = 0; pi < parsed.periods.length; pi++) {
+    const period = parsed.periods[pi];
+    const pEnd   = period.duration != null ? period.start + period.duration : null;
+
+    const totalSegs = period.adaptationSets.reduce(
+      (s, as) => s + as.reps.reduce((t, r) => t + r.segs.length, 0), 0);
+
+    html += `<div class="sl-period">`;
+
+    // Period header
+    html += `<div class="sl-period-header">`;
+    const badgeLabel = period.id ? `Period ${pi} · ${period.id}` : `Period ${pi}`;
+    html += `<span class="sl-period-badge">${escapeHtml(badgeLabel)}</span>`;
+    const startFmt = formatTick(Math.round(period.start));
+    const endFmt   = pEnd != null ? formatTick(Math.round(pEnd)) : '?';
+    html += `<span class="sl-period-timerange">${escapeHtml(startFmt)}\u2013${escapeHtml(endFmt)}</span>`;
+    if (period.duration != null)
+      html += `<span class="sl-period-dur">${period.duration.toFixed(3)}s</span>`;
+    html += `<span class="sl-period-segcount">${totalSegs} segs total</span>`;
+    html += `</div>`;
+
+    // Adaptation set groups: Video → Audio → Subtitles
+    const groups = [
+      { label: 'Video',     list: period.adaptationSets.filter(as => as.isVideo) },
+      { label: 'Audio',     list: period.adaptationSets.filter(as => as.isAudio) },
+      { label: 'Subtitles', list: period.adaptationSets.filter(as => as.isText)  },
+    ];
+    for (const { label, list } of groups) {
+      if (!list.length) continue;
+      html += `<div class="sl-as-group">`;
+      html += `<div class="sl-as-group-label">${escapeHtml(label)}</div>`;
+      for (const as of list) {
+        for (const rep of [...as.reps].sort((a, b) => b.bandwidth - a.bandwidth)) {
+          html += buildDashRepTrackHtml(as, rep, period, baseUrl);
+        }
+      }
+      html += `</div>`;
+    }
+
+    html += `</div>`; // .sl-period
+  }
+
+  html += `</div>`; // .sl-view
+  return html;
+}
+
 // ─── Segment list render entry point ──────────────────────────────────────────
 
 async function renderSegments() {
@@ -584,17 +725,21 @@ async function renderSegments() {
     return;
   }
   try {
-    if (!cachedTimelineRows) {
-      if (currentParsed.isDash) {
-        cachedTimelineRows = buildDashRows(currentParsed);
-      } else if (currentParsed.isMaster) {
-        el.innerHTML = `<div class="sl-loading">Fetching renditions\u2026</div>`;
-        cachedTimelineRows = await buildMasterRows(currentParsed, currentUrl);
-      } else {
-        cachedTimelineRows = buildMediaRows(currentParsed, currentUrl);
+    if (currentParsed.isDash) {
+      // DASH: render directly from parsed structure, grouped by period
+      el.innerHTML = buildDashSegmentListHtml(currentParsed, currentUrl);
+    } else {
+      // HLS: use cachedTimelineRows (may need to fetch renditions for master)
+      if (!cachedTimelineRows) {
+        if (currentParsed.isMaster) {
+          el.innerHTML = `<div class="sl-loading">Fetching renditions\u2026</div>`;
+          cachedTimelineRows = await buildMasterRows(currentParsed, currentUrl);
+        } else {
+          cachedTimelineRows = buildMediaRows(currentParsed, currentUrl);
+        }
       }
+      el.innerHTML = buildSegmentListHtml(cachedTimelineRows, false, currentUrl);
     }
-    el.innerHTML = buildSegmentListHtml(cachedTimelineRows, !!currentParsed.isDash, currentUrl);
     for (const header of el.querySelectorAll('.sl-track-header')) {
       header.addEventListener('click', () => {
         header.closest('.sl-track').classList.toggle('sl-track--collapsed');

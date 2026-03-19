@@ -135,7 +135,18 @@ function parseDashMpd(content, baseUrl) {
   if (!mpd || mpd.nodeName === 'parsererror' || !mpd.nodeName.toLowerCase().includes('mpd')) return null;
 
   const totalDur = parseDashDuration(mpd.getAttribute('mediaPresentationDuration'));
-  const result   = { isDash: true, duration: totalDur, periods: [] };
+  const result   = {
+    isDash:                    true,
+    duration:                  totalDur,
+    type:                      mpd.getAttribute('type')                      || 'static',
+    availabilityStartTime:     mpd.getAttribute('availabilityStartTime')     || null,
+    availabilityEndTime:       mpd.getAttribute('availabilityEndTime')       || null,
+    publishTime:               mpd.getAttribute('publishTime')               || null,
+    minimumUpdatePeriod:       mpd.getAttribute('minimumUpdatePeriod')       || null,
+    timeShiftBufferDepth:      mpd.getAttribute('timeShiftBufferDepth')      || null,
+    suggestedPresentationDelay:mpd.getAttribute('suggestedPresentationDelay')|| null,
+    periods:                   [],
+  };
 
   let implicitStart = 0;
 
@@ -143,6 +154,7 @@ function parseDashMpd(content, baseUrl) {
     const pStart = parseDashDuration(period.getAttribute('start')) ?? implicitStart;
     const pDur   = parseDashDuration(period.getAttribute('duration'))
                 ?? (totalDur != null ? totalDur - pStart : null);
+    const pId    = period.getAttribute('id') || null;
 
     const adaptationSets = [];
 
@@ -192,7 +204,7 @@ function parseDashMpd(content, baseUrl) {
       }
     }
 
-    result.periods.push({ start: pStart, duration: pDur, adaptationSets });
+    result.periods.push({ id: pId, start: pStart, duration: pDur, adaptationSets });
     implicitStart = pStart + (pDur ?? 0);
   }
 

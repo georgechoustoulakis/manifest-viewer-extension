@@ -759,6 +759,116 @@ a.uri-segment:hover {
   text-transform: uppercase;
 }
 
+/* ---- DASH segment list ---- */
+
+.sl-view--dash {
+  gap: 16px;
+}
+
+.sl-mpd-info {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  padding: 12px 18px;
+}
+
+.sl-mpd-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sl-mpd-key {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.sl-mpd-val {
+  color: var(--text);
+  font-family: 'Menlo', 'Monaco', 'Consolas', monospace;
+  font-size: 13px;
+}
+
+/* Period card */
+.sl-period {
+  border: 1px solid rgba(166, 227, 161, 0.3);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.sl-period-header {
+  align-items: baseline;
+  background: rgba(166, 227, 161, 0.07);
+  border-bottom: 1px solid rgba(166, 227, 161, 0.2);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 10px 16px;
+}
+
+.sl-period-badge {
+  color: #a6e3a1;
+  font-family: 'Menlo', 'Monaco', 'Consolas', monospace;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.sl-period-timerange {
+  color: var(--text);
+  font-family: 'Menlo', 'Monaco', 'Consolas', monospace;
+  font-size: 13px;
+}
+
+.sl-period-dur {
+  color: var(--subtext);
+  font-family: 'Menlo', 'Monaco', 'Consolas', monospace;
+  font-size: 13px;
+}
+
+.sl-period-segcount {
+  color: var(--muted);
+  font-size: 12px;
+  margin-left: auto;
+}
+
+/* Adaptation set group */
+.sl-as-group {
+  border-top: 1px solid var(--border);
+}
+
+.sl-as-group-label {
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  padding: 4px 16px;
+  text-transform: uppercase;
+}
+
+/* Tracks nested inside a period: no separate card, borderless */
+.sl-period .sl-track {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+}
+
+.sl-period .sl-track:last-child { border-bottom: none; }
+
+.sl-period .sl-track-header {
+  background: var(--surface);
+}
+
+.sl-period .sl-track-header:hover { filter: brightness(1.1); }
+
 .sl-empty {
   color: var(--subtext);
   padding: 50px;
