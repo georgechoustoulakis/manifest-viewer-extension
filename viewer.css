@@ -779,6 +779,17 @@ a.uri-segment:hover {
   border-bottom: 1px solid var(--border);
 }
 
+.sl-init-row a {
+  color: var(--c-uri-seg);
+  text-decoration: none;
+  border-bottom: 1px dashed currentColor;
+}
+
+.sl-init-row a:hover {
+  border-bottom-style: solid;
+  opacity: 0.8;
+}
+
 .sl-init-label {
   display: inline-block;
   font-size: 10px;
