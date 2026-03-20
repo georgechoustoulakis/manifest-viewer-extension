@@ -1105,6 +1105,8 @@ a.uri-segment:hover {
   position: relative;
 }
 
+.view-menu[hidden] { display: none; }
+
 .view-menu {
   position: absolute;
   top: calc(100% + 6px);
