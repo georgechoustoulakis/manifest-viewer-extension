@@ -241,11 +241,22 @@ function buildMediaRows(parsed, baseUrl) {
 function simplifyVideoCodec(codecsStr) {
   if (!codecsStr) return '';
   for (const c of codecsStr.split(',').map(s => s.trim())) {
+    // Dolby Vision (check before HEVC/AVC/AV1 — DV wraps those)
+    if (/^dvh[1e]/i.test(c))    return 'Dolby Vision'; // DV over HEVC
+    if (/^dvav/i.test(c))       return 'Dolby Vision'; // DV over AVC
+    if (/^dav1/i.test(c))       return 'Dolby Vision'; // DV over AV1
+    // Standard video
     if (/^avc1/i.test(c))       return 'H.264';
     if (/^hvc1|^hev1/i.test(c)) return 'H.265';
     if (/^av01/i.test(c))       return 'AV1';
+    if (/^vvc1|^vvi1/i.test(c)) return 'H.266';
     if (/^vp09/i.test(c))       return 'VP9';
     if (/^vp08/i.test(c))       return 'VP8';
+    // Legacy / container-signalled
+    if (/^mp4v/i.test(c))       return 'MPEG-4';
+    if (/^mp2v|^m2v1/i.test(c)) return 'MPEG-2';
+    if (/^vc-1/i.test(c))       return 'VC-1';
+    if (/^theo/i.test(c))       return 'Theora';
   }
   return '';
 }
@@ -253,18 +264,39 @@ function simplifyVideoCodec(codecsStr) {
 function simplifyAudioCodec(codecsStr) {
   if (!codecsStr) return '';
   for (const c of codecsStr.split(',').map(s => s.trim())) {
-    if (/^mp4a/i.test(c))                     return 'AAC';
-    if (/^ac-3$/i.test(c))                    return 'AC-3';
-    if (/^ec-3$/i.test(c))                    return 'EAC-3';
-    if (/^opus$/i.test(c))                    return 'Opus';
-    if (/^mp3$|^mp4a\.40\.34/i.test(c))       return 'MP3';
+    // Dolby family
+    if (/^ac-4$/i.test(c))                     return 'AC-4';
+    if (/^ec-3$/i.test(c))                     return 'EAC-3';
+    if (/^ac-3$/i.test(c))                     return 'AC-3';
+    // DTS family
+    if (/^dtsx$/i.test(c))                     return 'DTS:X';
+    if (/^dtsc|^dtse|^dtsh|^dtsl/i.test(c))   return 'DTS';
+    // AAC variants (mp4a covers AAC-LC, HE-AAC, xHE-AAC, etc.)
+    if (/^mp4a\.40\.42/i.test(c))              return 'xHE-AAC';
+    if (/^mp4a/i.test(c))                      return 'AAC';
+    // Other
+    if (/^opus$/i.test(c))                     return 'Opus';
+    if (/^flac$/i.test(c))                     return 'FLAC';
+    if (/^alac$/i.test(c))                     return 'ALAC';
+    if (/^vorb$/i.test(c))                     return 'Vorbis';
+    if (/^mp3$|^mp4a\.40\.34/i.test(c))        return 'MP3';
+    if (/^mlpa$/i.test(c))                     return 'TrueHD';
   }
   return '';
 }
 
 const CODEC_CSS_CLASS = {
-  'H.264': 'h264', 'H.265': 'h265', 'AV1': 'av1', 'VP9': 'vp9', 'VP8': 'vp8',
-  'AAC': 'aac', 'AC-3': 'ac3', 'EAC-3': 'eac3', 'Opus': 'opus', 'MP3': 'mp3',
+  // Video
+  'Dolby Vision': 'dv',
+  'H.264': 'h264', 'H.265': 'h265', 'H.266': 'h266',
+  'AV1': 'av1', 'VP9': 'vp9', 'VP8': 'vp8',
+  'MPEG-4': 'mpeg4', 'MPEG-2': 'mpeg2', 'VC-1': 'vc1', 'Theora': 'theora',
+  // Audio
+  'AC-4': 'ac4', 'EAC-3': 'eac3', 'AC-3': 'ac3',
+  'DTS:X': 'dtsx', 'DTS': 'dts',
+  'xHE-AAC': 'xheaac', 'AAC': 'aac',
+  'Opus': 'opus', 'FLAC': 'flac', 'ALAC': 'alac', 'Vorbis': 'vorbis',
+  'MP3': 'mp3', 'TrueHD': 'truehd',
 };
 
 function codecChipHtml(codec) {
