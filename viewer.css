@@ -773,6 +773,25 @@ a.uri-segment:hover {
   white-space: nowrap;
 }
 
+.sl-init-row td {
+  padding: 4px 12px;
+  background: rgba(203,166,247,.06);
+  border-bottom: 1px solid var(--border);
+}
+
+.sl-init-label {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: #cba6f7;
+  background: rgba(203,166,247,.15);
+  border-radius: 3px;
+  padding: 1px 5px;
+  margin-right: 8px;
+}
+
 .sl-disc-row td,
 .sl-period-row td,
 .sl-run-row td {

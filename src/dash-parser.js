@@ -191,14 +191,19 @@ function parseDashMpd(content, baseUrl) {
         const list = inheritedEl([rep, as],          'SegmentList');
 
         let segs = [];
+        let initUri = '';
         if (tmpl) {
           segs = resolveSegmentTemplate(tmpl, repId, bandwidth, pStart, pDur);
+          const initTmpl = tmpl.getAttribute('initialization') || '';
+          if (initTmpl) initUri = dashSubstitute(initTmpl, repId, bandwidth, '', '');
         } else if (list) {
           segs = resolveSegmentList(list, pStart);
+          const initEl = list.querySelector(':scope > Initialization');
+          if (initEl) initUri = initEl.getAttribute('sourceURL') || '';
         }
 
         if (segs.length) {
-          reps.push({ id: repId, bandwidth, width, height, codecs, frameRate, segs });
+          reps.push({ id: repId, bandwidth, width, height, codecs, frameRate, segs, initUri });
         }
       }
 

@@ -559,6 +559,17 @@ function byterangeBadge(first, last) {
   return `<span class="sl-byterange">bytes\u00a0${first}\u2013${last}</span>`;
 }
 
+// Render an initializer row spanning all columns.
+// uri is already resolved. byterange (optional) is a parsed {first,last} or null.
+function slInitRow(uri, byterange, cols = 5) {
+  const fname = uri.split('/').pop().split('?')[0] || uri;
+  const brBadge = byterange ? byterangeBadge(byterange.first, byterange.last) : '';
+  return `<tr class="sl-init-row"><td colspan="${cols}">` +
+    `<span class="sl-init-label">init</span>` +
+    `<a href="${escapeHtml(uri)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(uri)}">${escapeHtml(fname)}</a>` +
+    `${brBadge}</td></tr>`;
+}
+
 // ─── Segment list HTML builder ────────────────────────────────────────────────
 
 function buildSegmentListHtml(rows, isDash, baseUrl) {
@@ -598,6 +609,7 @@ function buildSegmentListHtml(rows, isDash, baseUrl) {
     if (!isDash) {
       // HLS: pre-split into discontinuity runs, render a header for every run
       const runs = splitIntoRuns(row.segs);
+      let lastShownMapUri = null;
       for (let ri = 0; ri < runs.length; ri++) {
         const run = runs[ri];
         const runDur = runDuration(run);
@@ -621,6 +633,14 @@ function buildSegmentListHtml(rows, isDash, baseUrl) {
           html += `<tr class="sl-disc-row"><td colspan="5">` +
             `<span class="sl-disc-label">discontinuity · run #${ri}</span>${infoHtml}` +
             `</td></tr>`;
+        }
+
+        // Show initializer if this run has a map that's new or changed
+        if (firstSeg.map && firstSeg.map.uri !== lastShownMapUri) {
+          lastShownMapUri = firstSeg.map.uri;
+          const br = firstSeg.map.byterange ? parseHlsByterange(firstSeg.map.byterange) : null;
+          const brParsed = br ? { first: br.offset ?? 0, last: (br.offset ?? 0) + br.length - 1 } : null;
+          html += slInitRow(firstSeg.map.uri, brParsed);
         }
 
         let tRel = 0;
@@ -744,6 +764,11 @@ function buildDashRepTrackHtml(as, rep, period, baseUrl, isLive) {
   html += `<th class="sl-th-dur">Duration</th>`;
   html += `<th class="sl-th-uri">Segment</th>`;
   html += `</tr></thead><tbody>`;
+
+  if (rep.initUri) {
+    const resolvedInit = resolveUrl(rep.initUri, baseUrl);
+    html += slInitRow(resolvedInit, null);
+  }
 
   for (const seg of rep.segs) {
     const rawUri      = seg.uri || '';

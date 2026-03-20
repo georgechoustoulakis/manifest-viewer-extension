@@ -34,6 +34,7 @@ function parseHls(content, baseUrl) {
   let pendingPDT       = null;
   let pendingByterange = null;
   let currentKey       = null;
+  let currentMap       = null;
 
   while (i < lines.length) {
     const line = lines[i];
@@ -51,6 +52,9 @@ function parseHls(content, baseUrl) {
     } else if (line.startsWith('#EXT-X-KEY:')) {
       const a = parseHlsAttrs(line.slice(11));
       currentKey = (a.METHOD && a.METHOD !== 'NONE') ? { method: a.METHOD, uri: a.URI || '' } : null;
+    } else if (line.startsWith('#EXT-X-MAP:')) {
+      const a = parseHlsAttrs(line.slice(11));
+      currentMap = a.URI ? { uri: resolveUrl(a.URI, baseUrl), byterange: a.BYTERANGE || null } : null;
     } else if (line.startsWith('#EXT-X-STREAM-INF:')) {
       result.isMaster = true;
       const a = parseHlsAttrs(line.slice(18));
@@ -113,6 +117,7 @@ function parseHls(content, baseUrl) {
         title:           pendingTitle,
         discontinuity:   pendingDisc,
         key:             currentKey,
+        map:             currentMap,
         programDateTime: pendingPDT,
         byterange:       pendingByterange,
       });
