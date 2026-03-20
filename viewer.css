@@ -692,6 +692,43 @@ a.uri-segment:hover {
   font-weight: 600;
 }
 
+/* ---- Codec chips (used in timeline labels + segment list headers) ---- */
+
+.codec-chip {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  color: var(--subtext);
+  background: var(--surface2);
+  vertical-align: middle;
+  margin-left: 6px;
+  white-space: nowrap;
+}
+
+/* Video */
+.codec-chip--h264 { color: #89b4fa; background: rgba(137,180,250,.12); border-color: rgba(137,180,250,.28); }
+.codec-chip--h265 { color: #cba6f7; background: rgba(203,166,247,.12); border-color: rgba(203,166,247,.28); }
+.codec-chip--av1  { color: #a6e3a1; background: rgba(166,227,161,.12); border-color: rgba(166,227,161,.28); }
+.codec-chip--vp9  { color: #94e2d5; background: rgba(148,226,213,.12); border-color: rgba(148,226,213,.28); }
+.codec-chip--vp8  { color: #94e2d5; background: rgba(148,226,213,.12); border-color: rgba(148,226,213,.28); }
+/* Audio */
+.codec-chip--aac  { color: #f9e2af; background: rgba(249,226,175,.12); border-color: rgba(249,226,175,.28); }
+.codec-chip--ac3  { color: #fab387; background: rgba(250,179,135,.12); border-color: rgba(250,179,135,.28); }
+.codec-chip--eac3 { color: #f38ba8; background: rgba(243,139,168,.12); border-color: rgba(243,139,168,.28); }
+.codec-chip--opus { color: #b4befe; background: rgba(180,190,254,.12); border-color: rgba(180,190,254,.28); }
+.codec-chip--mp3  { color: #a6adc8; background: rgba(166,173,200,.12); border-color: rgba(166,173,200,.28); }
+
+/* Inside timeline row labels — sit below the name on their own line */
+.tl2-row-label .codec-chip {
+  display: block;
+  margin: 3px 0 0 0;
+  width: fit-content;
+}
+
 .sl-track-meta {
   color: var(--subtext);
   font-family: 'Menlo', 'Monaco', 'Consolas', monospace;

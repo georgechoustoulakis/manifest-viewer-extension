@@ -166,6 +166,7 @@ function buildTimelineHtml(rows, zoomFactor = 1) {
     const [namePart = '', ...subParts] = row.label.split('\n');
     html += `<div class="tl2-row-label">`;
     html += `<span class="tl2-row-name">${escapeHtml(namePart)}</span>`;
+    if (row.codec) html += codecChipHtml(row.codec);
     for (const sub of subParts) html += `<span class="tl2-row-sub">${escapeHtml(sub)}</span>`;
     if (row.error) html += `<span class="tl2-row-err">fetch failed</span>`;
     html += `</div>`;
@@ -244,8 +245,32 @@ function simplifyVideoCodec(codecsStr) {
     if (/^hvc1|^hev1/i.test(c)) return 'H.265';
     if (/^av01/i.test(c))       return 'AV1';
     if (/^vp09/i.test(c))       return 'VP9';
+    if (/^vp08/i.test(c))       return 'VP8';
   }
   return '';
+}
+
+function simplifyAudioCodec(codecsStr) {
+  if (!codecsStr) return '';
+  for (const c of codecsStr.split(',').map(s => s.trim())) {
+    if (/^mp4a/i.test(c))                     return 'AAC';
+    if (/^ac-3$/i.test(c))                    return 'AC-3';
+    if (/^ec-3$/i.test(c))                    return 'EAC-3';
+    if (/^opus$/i.test(c))                    return 'Opus';
+    if (/^mp3$|^mp4a\.40\.34/i.test(c))       return 'MP3';
+  }
+  return '';
+}
+
+const CODEC_CSS_CLASS = {
+  'H.264': 'h264', 'H.265': 'h265', 'AV1': 'av1', 'VP9': 'vp9', 'VP8': 'vp8',
+  'AAC': 'aac', 'AC-3': 'ac3', 'EAC-3': 'eac3', 'Opus': 'opus', 'MP3': 'mp3',
+};
+
+function codecChipHtml(codec) {
+  if (!codec) return '';
+  const cls = CODEC_CSS_CLASS[codec];
+  return `<span class="codec-chip${cls ? ` codec-chip--${cls}` : ''}">${escapeHtml(codec)}</span>`;
 }
 
 async function buildMasterRows(parsed, baseUrl) {
@@ -258,21 +283,20 @@ async function buildMasterRows(parsed, baseUrl) {
     const bwLabel = stream.bandwidth >= 1_000_000
       ? `${(stream.bandwidth / 1_000_000).toFixed(2)} Mbps`
       : `${(stream.bandwidth / 1000).toFixed(0)} Kbps`;
-    const codecLabel = simplifyVideoCodec(stream.codecs);
-    const fpsLabel   = stream.frameRate ? `${parseFloat(stream.frameRate).toFixed(0)}fps` : '';
-    const detailParts = [codecLabel, fpsLabel].filter(Boolean);
+    const codec    = simplifyVideoCodec(stream.codecs);
+    const fpsLabel = stream.frameRate ? `${parseFloat(stream.frameRate).toFixed(0)}fps` : '';
     const namePart = stream.resolution || bwLabel;
-    const label = detailParts.length
-      ? `${namePart}\n${bwLabel}\n${detailParts.join(' · ')}`
+    const label = fpsLabel
+      ? `${namePart}\n${bwLabel}\n${fpsLabel}`
       : `${namePart}\n${bwLabel}`;
     try {
       const { content } = await fetchManifest(stream.uri);
       const child = parseHls(content, stream.uri);
-      return { label, segs: child.segments, url: stream.uri,
+      return { label, codec, segs: child.segments, url: stream.uri,
                codecs: stream.codecs, bandwidth: stream.bandwidth,
                resolution: stream.resolution, frameRate: stream.frameRate };
     } catch {
-      return { label, segs: [], url: stream.uri, error: true,
+      return { label, codec, segs: [], url: stream.uri, error: true,
                codecs: stream.codecs, bandwidth: stream.bandwidth,
                resolution: stream.resolution, frameRate: stream.frameRate };
     }
@@ -283,18 +307,16 @@ async function buildMasterRows(parsed, baseUrl) {
       const bwLabel = iframe.bandwidth >= 1_000_000
         ? `${(iframe.bandwidth / 1_000_000).toFixed(2)} Mbps`
         : `${(iframe.bandwidth / 1000).toFixed(0)} Kbps`;
-      const codecLabel = simplifyVideoCodec(iframe.codecs);
+      const codec    = simplifyVideoCodec(iframe.codecs);
       const namePart = iframe.resolution || bwLabel;
-      const label = codecLabel
-        ? `${namePart}\n${bwLabel}\n${codecLabel}`
-        : `${namePart}\n${bwLabel}`;
+      const label    = `${namePart}\n${bwLabel}`;
       try {
         const { content } = await fetchManifest(iframe.uri);
         const child = parseHls(content, iframe.uri);
-        return { label, segs: child.segments, url: iframe.uri, isIframe: true,
+        return { label, codec, segs: child.segments, url: iframe.uri, isIframe: true,
                  codecs: iframe.codecs, bandwidth: iframe.bandwidth, resolution: iframe.resolution };
       } catch {
-        return { label, segs: [], url: iframe.uri, isIframe: true, error: true,
+        return { label, codec, segs: [], url: iframe.uri, isIframe: true, error: true,
                  codecs: iframe.codecs, bandwidth: iframe.bandwidth, resolution: iframe.resolution };
       }
     })
@@ -342,22 +364,22 @@ function buildDashRows(parsed) {
           ? `${(rep.bandwidth / 1_000_000).toFixed(2)} Mbps`
           : `${(rep.bandwidth / 1000).toFixed(0)} Kbps`;
 
-        let label;
+        let label, codec;
         if (as.isVideo) {
-          const namePart   = rep.width && rep.height ? `${rep.width}x${rep.height}` : bwLabel;
-          const codecLabel = simplifyVideoCodec(rep.codecs);
-          const fpsLabel   = rep.frameRate ? `${parseFloat(rep.frameRate).toFixed(0)}fps` : '';
-          const detail     = [codecLabel, fpsLabel].filter(Boolean).join(' · ');
-          label = detail ? `${namePart}\n${bwLabel}\n${detail}` : `${namePart}\n${bwLabel}`;
+          const namePart = rep.width && rep.height ? `${rep.width}x${rep.height}` : bwLabel;
+          const fpsLabel = rep.frameRate ? `${parseFloat(rep.frameRate).toFixed(0)}fps` : '';
+          codec = simplifyVideoCodec(rep.codecs);
+          label = fpsLabel ? `${namePart}\n${bwLabel}\n${fpsLabel}` : `${namePart}\n${bwLabel}`;
         } else {
           const namePart = as.label || as.lang || (as.isAudio ? 'Audio' : 'Subtitle');
+          codec = simplifyAudioCodec(rep.codecs);
           label = as.lang && as.label && as.lang !== as.label
             ? `${namePart}\n${as.lang}\n${bwLabel}`
             : `${namePart}\n${bwLabel}`;
         }
 
         const row = {
-          label,
+          label, codec,
           segs: rep.segs,
           isAudio:    as.isAudio,
           isSubtitle: as.isText,
@@ -496,6 +518,7 @@ function buildDashTimelineHtml(rows, zoomFactor = 1, periods = [], parsed = null
     const [namePart = '', ...subParts] = row.label.split('\n');
     html += `<div class="tl2-row-label">`;
     html += `<span class="tl2-row-name">${escapeHtml(namePart)}</span>`;
+    if (row.codec) html += codecChipHtml(row.codec);
     for (const sub of subParts) html += `<span class="tl2-row-sub">${escapeHtml(sub)}</span>`;
     html += `</div>`;
 
@@ -589,6 +612,7 @@ function buildSegmentListHtml(rows, isDash, baseUrl) {
     html += '<div class="sl-track-header">';
     html += `<span class="sl-track-toggle" aria-hidden="true">&#9660;</span>`;
     html += `<span class="sl-track-name">${escapeHtml(namePart)}</span>`;
+    if (row.codec) html += codecChipHtml(row.codec);
     if (subParts.length) {
       html += `<span class="sl-track-meta">${subParts.map(escapeHtml).join(' · ')}</span>`;
     }
@@ -733,17 +757,18 @@ function buildDashRepTrackHtml(as, rep, period, baseUrl, isLive) {
     : `${(rep.bandwidth / 1000).toFixed(0)} Kbps`;
 
   const nameParts = [];
+  let codec;
   if (as.isVideo) {
     if (rep.width && rep.height) nameParts.push(`${rep.width}×${rep.height}`);
     nameParts.push(bwLabel);
-    const codec = simplifyVideoCodec(rep.codecs);
-    if (codec) nameParts.push(codec);
     if (rep.frameRate) nameParts.push(`${parseFloat(rep.frameRate).toFixed(0)}fps`);
+    codec = simplifyVideoCodec(rep.codecs);
   } else {
     const trackName = as.label || as.lang || (as.isAudio ? 'Audio' : 'Subtitle');
     nameParts.push(trackName);
     if (as.lang && as.label && as.lang !== as.label) nameParts.push(as.lang);
     nameParts.push(bwLabel);
+    codec = simplifyAudioCodec(rep.codecs);
   }
   const label  = nameParts.join(' · ');
   const repDur = rep.segs.reduce((s, seg) => s + seg.duration, 0);
@@ -752,6 +777,7 @@ function buildDashRepTrackHtml(as, rep, period, baseUrl, isLive) {
   html += `<div class="sl-track-header">`;
   html += `<span class="sl-track-toggle" aria-hidden="true">&#9660;</span>`;
   html += `<span class="sl-track-name">${escapeHtml(label)}</span>`;
+  if (codec) html += codecChipHtml(codec);
   html += `<span class="sl-track-count">${rep.segs.length} seg${rep.segs.length !== 1 ? 's' : ''} · ${repDur.toFixed(3)}s total</span>`;
   html += `</div>`;
 
