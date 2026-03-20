@@ -127,8 +127,6 @@ async function loadManifest(url) {
       : renderHls(content, url);
 
     $('download-btn').disabled = false;
-    $('tab-validate').hidden = (format !== 'hls');
-    if (format !== 'hls' && currentView === 'validate') switchView('source', false);
     const bytes = new TextEncoder().encode(content).length;
     $('status-text').textContent = status;
     $('status-meta').textContent =
@@ -178,10 +176,11 @@ function renderBreadcrumbs(chain, url) {
 
 function switchView(view, pushHistory = true) {
   currentView = view;
-  $('tab-source').classList.toggle('tab-btn--active',   view === 'source');
-  $('tab-timeline').classList.toggle('tab-btn--active', view === 'timeline');
-  $('tab-segments').classList.toggle('tab-btn--active', view === 'segments');
-  $('tab-validate').classList.toggle('tab-btn--active', view === 'validate');
+  $('tab-source').classList.toggle('tab-btn--active',    view === 'source');
+  $('tab-timeline').classList.toggle('tab-btn--active',  view === 'timeline');
+  $('tab-segments').classList.toggle('tab-btn--active',  view === 'segments');
+  $('tab-validate').classList.toggle('tab-btn--active',  view === 'validate');
+  $('view-menu-btn').classList.toggle('tab-btn--active', view !== 'source');
   $('view-source').hidden   = view !== 'source';
   $('view-timeline').hidden = view !== 'timeline';
   $('view-segments').hidden = view !== 'segments';
@@ -287,9 +286,16 @@ document.addEventListener('DOMContentLoaded', () => {
   $('go-btn').addEventListener('click', goOrRefresh);
 
   $('tab-source').addEventListener('click',   () => switchView('source'));
-  $('tab-timeline').addEventListener('click', () => switchView('timeline'));
-  $('tab-segments').addEventListener('click', () => switchView('segments'));
-  $('tab-validate').addEventListener('click', () => switchView('validate'));
+  $('tab-timeline').addEventListener('click', () => { $('view-menu').hidden = true; switchView('timeline'); });
+  $('tab-segments').addEventListener('click', () => { $('view-menu').hidden = true; switchView('segments'); });
+  $('tab-validate').addEventListener('click', () => { $('view-menu').hidden = true; switchView('validate'); });
+
+  // Burger menu toggle
+  $('view-menu-btn').addEventListener('click', e => {
+    e.stopPropagation();
+    $('view-menu').hidden = !$('view-menu').hidden;
+  });
+  document.addEventListener('click', () => { $('view-menu').hidden = true; });
 
   setupDragScroll($('view-timeline'));
 

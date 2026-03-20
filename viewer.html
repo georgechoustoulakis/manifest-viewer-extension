@@ -28,9 +28,18 @@
       <button id="download-btn" class="nav-btn nav-btn--download" title="Download manifest" disabled>&#8595;</button>
       <div class="nav-divider"></div>
       <button id="tab-source" class="nav-btn tab-btn tab-btn--active">Source</button>
-      <button id="tab-timeline" class="nav-btn tab-btn">Timeline</button>
-      <button id="tab-segments" class="nav-btn tab-btn">Segments</button>
-      <button id="tab-validate" class="nav-btn tab-btn" hidden>Validate</button>
+      <div class="view-menu-wrap">
+        <button id="view-menu-btn" class="nav-btn tab-btn" title="Views">&#8801;</button>
+        <div id="view-menu" class="view-menu" hidden>
+          <button id="tab-timeline" class="view-menu-item">Timeline</button>
+          <button id="tab-segments" class="view-menu-item">Segments</button>
+          <div class="view-menu-divider"></div>
+          <button id="tab-validate" class="view-menu-item">
+            Validate
+            <span class="view-menu-hint">HLS only</span>
+          </button>
+        </div>
+      </div>
     </nav>
 
     <div id="breadcrumbs" class="breadcrumbs" hidden></div>
